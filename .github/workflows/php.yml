@@ -32,13 +32,6 @@ jobs:
     - name: Install dependencies
       run: composer install --prefer-dist --no-progress
       
-
-{
-  "name": "lovieenrose/the-catalog-library",
-  "description": "A short description of your project",
-  "require": {}
-  
-  }
     # Docs: https://getcomposer.org/doc/articles/scripts.md
 
     # - name: Run test suite
