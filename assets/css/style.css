@@ -11,50 +11,40 @@
     box-sizing: border-box;
 }
 
-
+/* Font Definitions */
 .sniglet-regular {
     font-family: "Sniglet", system-ui;
-    font-weight: 400;
-    font-style: normal;
-  }
-  
-  .sniglet-extrabold {
-    font-family: "Sniglet", system-ui;
-    font-weight: 800;
-    font-style: normal;
-  }
-  
-
-body {
-    margin: 0;
-    font-family: 'Sniglet', system-ui, sans-serif;
-    background-color: var(--blush);
-    color: var(--black);
-}
-
-
-html, body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Sniglet', system-ui, sans-serif;
-    background-color: var(--blush);
-    color: var(--black);
-    overflow-x: hidden;
-}
-
-.sniglet-regular {
-    font-family: 'Sniglet', system-ui, sans-serif;
     font-weight: 400;
     font-style: normal;
 }
 
 .sniglet-extrabold {
-    font-family: 'Sniglet', system-ui, sans-serif;
+    font-family: "Sniglet", system-ui;
     font-weight: 800;
     font-style: normal;
 }
 
+/* Base Layout */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    background-color: var(--blush);
+    color: var(--black);
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
 
+/* Wrapper to push footer to bottom */
+.page-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Welcome Page Container */
 .welcome-container {
     display: flex;
     flex-direction: column;
@@ -65,6 +55,7 @@ html, body {
     justify-content: flex-start;
 }
 
+/* Banner Styles */
 .banner {
     position: relative;
     width: 100%;
@@ -106,17 +97,19 @@ html, body {
     margin-top: 7rem;
 }
 
-
+/* Button Group */
 .button-group {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 1.5rem;
-    margin-top: 7rem;  /* Reduced from 3rem to tighten spacing */
-    margin-bottom: 6rem; /* Optional: to give spacing below buttons */
+    margin-top: 7rem;
+    margin-bottom: 6rem;
 }
 
-
+/* Button */
 .btn {
+    width: 350px;
     text-decoration: none;
     text-align: center;
     padding: 2rem 5rem;
@@ -128,10 +121,8 @@ html, body {
     font-weight: bold;
     box-shadow: 4px 4px var(--caramel);
     transition: transform 0.2s, box-shadow 0.2s;
-    display: inline-block;
-    margin-bottom: 0;
-    margin-top: 0;
-    position: center;
+    display: block;
+    margin: 0 auto;
 }
 
 .btn:hover {
@@ -139,12 +130,12 @@ html, body {
     box-shadow: 6px 6px var(--caramel);
 }
 
+/* Footer */
 .main-footer {
-    width: 100vw;               /* full viewport width */
-    box-sizing: border-box;     /* ensures padding doesn't overflow */
-    overflow-x: hidden;         /* prevents horizontal scroll */
-    background-color: #B9874F;
-    color: #f9f7f7;
+    margin-top: auto;
+    width: 100%;
+    background-color: var(--caramel);
+    color: var(--white);
     text-shadow: #000000 1px 1px 2px;
     font-size: 0.9rem;
     padding: 1rem 2rem;
@@ -153,18 +144,92 @@ html, body {
     align-items: center;
     border-top: 1px solid #ccc;
     box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.05);
-
-    position: relative;
-    bottom: 0;
-    margin-top: -50px; /* pull the footer upward slightly */
 }
 
-
-
 @media (max-width: 600px) {
-    .main-footer{
+    .main-footer {
         flex-direction: column;
         text-align: center;
         gap: 0.5rem;
     }
 }
+
+/* LOGIN / REGISTER SHARED STYLES */
+.login-container {
+    width: 90%;
+    background-color: #fce6e0;
+    margin: -80px auto 2rem auto;
+    padding: 2rem;
+    border-radius: 1.5rem;
+    max-width: 400px;
+    border: 1px solid var(--black);
+    text-align: center;
+    box-shadow: 4px 4px var(--caramel);
+    position: relative;
+    z-index: 10;
+    margin-bottom: 5rem;
+}
+
+/* Logo Above Form */
+.logo-wrapper {
+    margin-top: -70px;
+    margin-bottom: 1rem;
+}
+
+.logo-img {
+    width: 150px;
+    height: auto;
+    border-radius: 50%;
+    border: 2px solid var(--black);
+    background-color: var(--white);
+    padding: 0.2rem;
+}
+
+/* Form Title */
+.login-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+/* Form Layout */
+.login-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Input Fields */
+.login-form input {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid #888;
+    font-family: 'Sniglet', sans-serif;
+    font-size: 1rem;
+    background-color: var(--blush);
+}
+
+/* Form Button */
+.login-form .btn {
+    padding: 1rem;
+    width: 100%;
+    border-radius: 5rem;
+    font-size: 1rem;
+    font-family: 'Sniglet', sans-serif;
+    background-color: var(--pinkish);
+    text-shadow: #000000 2px 3px 3px;
+}
+
+/* Forgot password link */
+.forgot-link {
+    text-align: right;
+    font-size: 0.9rem;
+}
+
+.forgot-link a {
+    color: blue;
+    text-decoration: underline;
+}
+

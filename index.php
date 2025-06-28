@@ -13,8 +13,8 @@ session_start();
 </div>
 
     <div class="button-group">
-        <a href="admin_login.php" class="btn">LOGIN AS ADMIN</a>
         <a href="student_login.php" class="btn">LOGIN AS STUDENT</a>
+        <a href="admin_login.php" class="btn">LOGIN AS ADMIN</a>
     </div>
 </div>
 
