@@ -233,3 +233,384 @@ html, body {
     text-decoration: underline;
 }
 
+/* Dashboard Section */
+
+/* Banner Section with Background */
+.banner-section {
+    background-image: url('../assets/images/library-banner.jpg'); /* Replace with your image path */
+    background-color: var(--pinkish);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 400px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    color: var(--black);
+}   
+
+/* Navigation Header */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 10;
+}
+
+.logo-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.banner-logo-dashboard {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+}
+
+.logo-title h1 {
+    font-size: 1.8rem;
+    margin: 0;
+    color: var(--black);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Main Navigation */
+.main-nav {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.nav-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+
+.nav-menu li a {
+    text-decoration: none;
+    color: var(--black);
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.3s ease;
+}
+
+.nav-menu li a:hover {
+    background-color: rgba(139, 148, 158, 0.2);
+}
+
+/* Logout Button */
+.logout-btn {
+    background-color: var(--blush);
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.logout-btn:hover {
+    background-color: var(--pinkish);
+}
+
+/* Welcome Content - Centered */
+.welcome-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    z-index: 5;
+}
+
+.welcome-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--black);
+    text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+}
+
+.welcome-content p {
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 1.1rem;
+    color: var(--black);
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+    line-height: 1.6;
+}
+
+/* Dashboard Container */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2rem;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 2rem auto;
+    background-color: var(--white)
+}
+
+/* Individual Boxes */
+.dashboard-box {
+    border: 2px solid var(--black);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    background-color: var(--white);
+    box-shadow: 4px 4px 0 var(--caramel);
+    height: fit-content;
+}
+
+.dashboard-box h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    color: var(--black);
+}
+
+/* Book Catalog Section */
+.book-catalog h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem 0;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    color: var(--black);
+}
+
+.book-catalog h4:first-child {
+    margin-top: 0;
+}
+
+.book-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.book-row img {
+    width: 60px;
+    height: 90px;
+    border-radius: 4px;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    object-fit: cover;
+}
+
+/* Advanced Search Form */
+.search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-row {
+    display: flex;
+    width: 100%;
+}
+
+.form-row-split {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.form-row-split input,
+.form-row-split select {
+    flex: 1;
+}
+
+.search-form input,
+.search-form select {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-size: 0.9rem;
+    background-color: var(--white);
+}
+
+.search-form input:focus,
+.search-form select:focus {
+    outline: none;
+    border-color: var(--sage-green);
+    box-shadow: 0 0 0 2px rgba(139, 148, 158, 0.2);
+}
+
+/* Student Profile Section */
+.student-profile {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+.student-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.student-profile p {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--black);
+}
+
+/* Borrowed Books Table */
+.borrowed-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.borrowed-table th,
+.borrowed-table td {
+    padding: 0.8rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.borrowed-table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+    font-family: 'Sniglet', system-ui, sans-serif;
+}
+
+.borrowed-table td strong {
+    font-weight: 600;
+}
+
+.borrowed-table .status-green {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.borrowed-table .status-red {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+/* Buttons */
+.dashboard-box .btn {
+    display: block;
+    width: 100%;
+    padding: 0.8rem 1.5rem;
+    margin-top: 1rem;
+    background-color: var(--blush);
+    border: none;
+    border-radius: 0.5rem;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.dashboard-box .btn:hover {
+    background-color: var(--pinkish);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    .dashboard-box:last-child {
+        grid-column: 1 / -1;
+    }
+    
+    .main-header {
+        padding: 1rem;
+    }
+    
+    .nav-menu {
+        gap: 1rem;
+    }
+    
+    .logo-title h1 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .main-header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .main-nav {
+        order: 2;
+    }
+    
+    .logout-btn {
+        order: 3;
+        align-self: flex-end;
+    }
+    
+    .nav-menu {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+    
+    .welcome-content h2 {
+        font-size: 2rem;
+    }
+    
+    .welcome-content p {
+        font-size: 1rem;
+    }
+    
+    .form-row-split {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .book-row {
+        justify-content: space-between;
+    }
+    
+    .book-row img {
+        width: 50px;
+        height: 75px;
+    }
+    
+    .banner-section {
+        min-height: 300px;
+    }
+}

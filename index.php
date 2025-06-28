@@ -1,5 +1,4 @@
 <?php
-// Start session if needed (optional depending on login flow)
 session_start();
 ?>
 
@@ -13,7 +12,7 @@ session_start();
 </div>
 
     <div class="button-group">
-        <a href="student_login.php" class="btn">LOGIN AS STUDENT</a>
+        <a href="student/login.php" class="btn">LOGIN AS STUDENT</a>
         <a href="admin_login.php" class="btn">LOGIN AS ADMIN</a>
     </div>
 </div>
