@@ -1,9 +1,9 @@
 <?php
 // DO NOT call session_start() here
-$host = 'localhost';
-$db   = 'catalog_library'; // change this to your actual DB name
-$user = 'root';            // default for MAMP
-$pass = 'root';            // default password for MAMP
+$host = 'localhost';        // No port needed since it's the default
+$db   = 'catalog_library'; 
+$user = 'root';            
+$pass = 'root';            
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";

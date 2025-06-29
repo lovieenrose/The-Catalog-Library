@@ -1,4 +1,79 @@
-<?php require_once '../includes/session.php'; ?>
+<?php 
+require_once '../includes/session.php';
+require_once '../includes/db.php';
+
+// Get user information from session with fallbacks
+$user_id = $_SESSION['user_id'] ?? $_SESSION['student_id'] ?? null;
+$user_name = $_SESSION['user_name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? 'Student';
+
+// If we have a user_id and no full name, try to get it from database
+if ($user_id && (!isset($_SESSION['user_name']) || empty($_SESSION['user_name']))) {
+    try {
+        // Check if users table exists and has the expected columns
+        $stmt = $conn->prepare("SELECT first_name, last_name FROM users WHERE user_id = ? LIMIT 1");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
+        if ($user) {
+            $user_name = trim($user['first_name'] . ' ' . $user['last_name']);
+            $_SESSION['user_name'] = $user_name;
+        }
+    } catch (PDOException $e) {
+        // Table might not exist or have different structure
+        // Try alternative table/column names
+        try {
+            $stmt = $conn->prepare("SELECT name FROM students WHERE id = ? LIMIT 1");
+            $stmt->execute([$user_id]);
+            $user = $stmt->fetch();
+            if ($user) {
+                $user_name = $user['name'];
+                $_SESSION['user_name'] = $user_name;
+            }
+        } catch (PDOException $e2) {
+            // If both attempts fail, just use session data or fallback
+            error_log("Database error: " . $e2->getMessage());
+        }
+    }
+}
+
+// Get borrowed books for the current user (limit to 2 for preview)
+$borrowed_books = [];
+if ($user_id) {
+    try {
+        $borrowed_query = "
+            SELECT 
+                b.title,
+                bb.due_date,
+                bb.status,
+                bb.borrow_date
+            FROM borrowed_books bb
+            JOIN books b ON bb.book_id = b.book_id
+            WHERE bb.user_id = ? AND bb.status IN ('borrowed', 'overdue')
+            ORDER BY bb.due_date ASC
+            LIMIT 2
+        ";
+        
+        $stmt = $conn->prepare($borrowed_query);
+        $stmt->execute([$user_id]);
+        $borrowed_books = $stmt->fetchAll();
+    } catch (PDOException $e) {
+        // Handle case where tables don't exist or have different structure
+        error_log("Error fetching borrowed books: " . $e->getMessage());
+        $borrowed_books = [];
+    }
+}
+
+// Function to determine status display and class
+function getStatusDisplay($due_date, $status) {
+    $today = new DateTime();
+    $due = new DateTime($due_date);
+    
+    if ($status === 'overdue' || $due < $today) {
+        return ['text' => 'Overdue', 'class' => 'status-red'];
+    } else {
+        return ['text' => 'On Time', 'class' => 'status-green'];
+    }
+}
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -6,6 +81,7 @@
     <meta charset="UTF-8">
     <title>Student Dashboard - The Cat-alog Library</title>
     <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/dashboard.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
@@ -14,6 +90,7 @@
 
 <!-- Banner Section with Navigation and Welcome -->
 <section class="banner-section">
+    <img src="../assets/images/library-banner.jpg" alt="Library Banner" class="banner-bg">
     <!-- Navigation Overlay -->
     <header class="main-header">
         <div class="logo-title">
@@ -32,7 +109,7 @@
 
     <!-- Welcome Content -->
     <div class="welcome-content">
-        <h2 class="sniglet-extrabold">Welcome to the Dashboard</h2>
+        <h2 class="sniglet-extrabold">Welcome to the Dashboard, <?php echo htmlspecialchars($user_name); ?>!</h2>
         <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
     </div>
 </section>
@@ -40,24 +117,27 @@
 <!-- Main Dashboard Content -->
 <main class="dashboard-grid">
     <!-- Book Catalog -->
-    <section class="dashboard-box">
-        <h3>Book Catalog</h3>
-        <div class="book-catalog">
-            <h4>Fiction Books</h4>
-            <div class="book-row">
-                <img src="../assets/images/fiction1.jpg" alt="Fiction Book">
-                <img src="../assets/images/fiction2.jpg" alt="Fiction Book">
-                <img src="../assets/images/fiction3.jpg" alt="Fiction Book">
-            </div>
-            <h4>Non-Fiction Books</h4>
-            <div class="book-row">
-                <img src="../assets/images/nonfic1.jpg" alt="Non-Fiction Book">
-                <img src="../assets/images/nonfic2.jpg" alt="Non-Fiction Book">
-                <img src="../assets/images/nonfic3.jpg" alt="Non-Fiction Book">
-            </div>
+<section class="dashboard-box">
+    <h3>Book Catalog</h3>
+    <div class="book-catalog">
+        <h4>Fiction Books</h4>
+        <div class="book-row">
+            <img src="../uploads/book-images/fic1.jpg" alt="Fiction Book">
+            <img src="../uploads/book-images/fic2.jpg" alt="Fiction Book">
+            <img src="../uploads/book-images/fic3.jpg" alt="Fiction Book">
         </div>
-        <a href="browse_books.php" class="btn">Browse All Books</a>
-    </section>
+        <h4>Non-Fiction Books</h4>
+        <div class="book-row">
+            <img src="../uploads/book-images/fic1.jpg" alt="Non-Fiction Book">
+            <img src="../uploads/book-images/fic2.jpg" alt="Non-Fiction Book">
+            <img src="../uploads/book-images/fic3.jpg" alt="Non-Fiction Book">
+        </div>
+        <div class="more-books-text">
+            More books available in Browse Books!
+        </div>
+    </div>
+    <a href="browse_books.php" class="btn">Browse All Books</a>
+</section>
 
     <!-- Advanced Search -->
     <section class="dashboard-box">
@@ -88,38 +168,49 @@
         </form>
     </section>
 
-    <!-- Student Profile and Borrowed Books -->
-    <section class="dashboard-box">
-        <h3>Student Profile</h3>
-        <div class="student-profile">
-            <img src="../assets/images/student-icon.png" alt="Student Icon" class="student-avatar">
-            <p class="sniglet-regular">Maria Theresa</p>
-        </div>
+<!-- Student Profile and Borrowed Books -->
+<section class="dashboard-box">
+    <h3>Student Profile</h3>
+    <div class="student-profile">
+        <img src="../assets/images/student-icon.jpg" alt="Student Icon" class="student-avatar">
+        <p class="sniglet-regular"><?php echo htmlspecialchars($user_name); ?></p>
+    </div>
 
-        <h3>My Borrowed Books</h3>
-        <table class="borrowed-table">
-            <thead>
-                <tr>
-                    <th>Book Title</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>To Kill A Mockingbird</strong></td>
-                    <td>July 5, 2025</td>
-                    <td class="status-green">On Time</td>
-                </tr>
-                <tr>
-                    <td><strong>The Diary of a Young Girl</strong></td>
-                    <td>June 15, 2025</td>
-                    <td class="status-red">Overdue</td>
-                </tr>
-            </tbody>
-        </table>
+    <h3>My Borrowed Books</h3>
+    <div class="borrowed-books-container">
+        <?php if (empty($borrowed_books)): ?>
+            <div class="no-books-message">
+                <p>You currently have no borrowed books.</p>
+            </div>
+        <?php else: ?>
+            <table class="borrowed-table">
+                <thead>
+                    <tr>
+                        <th>Book Title</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($borrowed_books as $book): ?>
+                        <?php $status_info = getStatusDisplay($book['due_date'], $book['status']); ?>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($book['title']); ?></strong></td>
+                            <td><?php echo date('F j, Y', strtotime($book['due_date'])); ?></td>
+                            <td class="<?php echo $status_info['class']; ?>"><?php echo $status_info['text']; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+    
+    <?php if (empty($borrowed_books)): ?>
+        <a href="browse_books.php" class="btn">Browse Books to Borrow</a>
+    <?php else: ?>
         <a href="my_borrowed.php" class="btn">View All</a>
-    </section>
+    <?php endif; ?>
+</section>
 </main>
 
 <?php include '../includes/footer.php'; ?>

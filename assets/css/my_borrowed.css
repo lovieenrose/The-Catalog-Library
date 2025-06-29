@@ -1,0 +1,357 @@
+/* ========================================
+   MY BORROWED BOOKS PAGE STYLES
+   my_borrowed.css
+   ======================================== */
+
+/* Color Palette */
+:root {
+    --blush: #E8B7A1;
+    --pinkish: #E49090;
+    --caramel: #B9874F;
+    --black: #000000;
+    --white: #FFFFFF;
+}
+
+/* Borrowed Books Header Section */
+.borrowed-header {
+    background-color: var(--pinkish);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 400px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    color: var(--black);
+}
+
+/* Banner Background Image */
+.banner-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+
+/* Navigation Header - Same as Dashboard */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 10;
+}
+
+.logo-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.banner-logo-dashboard {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+}
+
+.logo-title h1 {
+    font-size: 1.8rem;
+    margin: 0;
+    color: var(--black);
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Main Navigation */
+.main-nav {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.nav-menu {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 2rem;
+}
+
+.nav-menu li a {
+    text-decoration: none;
+    color: var(--black);
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.3s ease;
+}
+
+.nav-menu li a:hover,
+.nav-menu li a.active {
+    background-color: rgba(139, 148, 158, 0.2);
+}
+
+/* Logout Button */
+.logout-btn {
+    background-color: var(--blush);
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+}
+
+.logout-btn:hover {
+    background-color: var(--pinkish);
+}
+
+/* Welcome Content - Centered */
+.welcome-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    z-index: 5;
+}
+
+.welcome-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--black);
+    text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+}
+
+.welcome-content p {
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 1.1rem;
+    color: var(--black);
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+    line-height: 1.6;
+}
+
+/* Borrowed Books Section */
+.borrowed-books-section {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: var(--white);
+}
+
+/* Alert Messages */
+.alert {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-weight: 600;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+/* No Books Container */
+.no-books-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    text-align: center;
+}
+
+.no-books-message h3 {
+    font-size: 2rem;
+    color: var(--black);
+    margin-bottom: 1rem;
+    font-family: 'Sniglet', system-ui, sans-serif;
+}
+
+.no-books-message p {
+    font-size: 1.1rem;
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.no-books-message .btn {
+    background-color: var(--caramel);
+    color: var(--white);
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+}
+
+.no-books-message .btn:hover {
+    background-color: #A67A44;
+}
+
+/* Borrowed Books Grid */
+.borrowed-books-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+/* Borrowed Book Card */
+.borrowed-book-card {
+    background: var(--white);
+    border: 2px solid var(--black);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 4px 4px 0 var(--caramel);
+    display: flex;
+    gap: 1.5rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.borrowed-book-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 6px 6px 0 var(--caramel);
+}
+
+/* Book Image Container */
+.book-image-container {
+    flex-shrink: 0;
+}
+
+.book-image {
+    width: 120px;
+    height: 180px;
+    background: var(--caramel);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    border: 2px solid #8B4513;
+}
+
+/* Book Details */
+.book-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.book-title {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--black);
+    margin-bottom: 1rem;
+    font-family: 'Sniglet', system-ui, sans-serif;
+}
+
+.book-meta {
+    margin-bottom: 1.5rem;
+}
+
+.book-meta p {
+    margin: 0.3rem 0;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.book-meta strong {
+    color: var(--black);
+}
+
+/* Borrow Info */
+.borrow-info {
+    margin-top: auto;
+}
+
+.borrow-details p {
+    margin: 0.3rem 0;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.borrow-details strong {
+    color: var(--black);
+}
+
+/* Status Styling */
+.status.status-ontime {
+    color: #28a745;
+}
+
+.status.status-overdue {
+    color: #dc3545;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .borrowed-books-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .welcome-content h2 {
+        font-size: 2rem;
+    }
+    
+    .borrowed-books-section {
+        padding: 1rem;
+        margin: 1rem auto;
+    }
+    
+    .borrowed-book-card {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .book-image {
+        margin-bottom: 1rem;
+    }
+    
+    .main-header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .nav-menu {
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .borrowed-books-section {
+        padding: 0.5rem;
+    }
+    
+    .borrowed-book-card {
+        padding: 1rem;
+    }
+    
+    .book-title {
+        font-size: 1.2rem;
+    }
+}
