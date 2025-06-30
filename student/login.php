@@ -170,7 +170,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <div style="margin-top: 20px; text-align: center;">
         <p><small>Don't have an account? <a href="register.php">Register here</a></small></p>
     </div>
+
 </div>
+
 
 <script>
 function togglePassword() {
