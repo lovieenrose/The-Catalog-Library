@@ -433,7 +433,7 @@ function buildUrl($newParams = []) {
         
         .btn-edit {
             background: var(--orange);
-            color: white;
+            color: black;
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 6px;
@@ -664,7 +664,7 @@ function buildUrl($newParams = []) {
                             <div class="book-card <?php echo $book['status'] === 'archived' ? 'archived' : ''; ?>">
                                 <div class="book-image">
                                     <?php if (!empty($book['book_image'])): ?>
-                                        <img src="../uploads/book_images/<?php echo htmlspecialchars($book['book_image']); ?>" 
+                                        <img src="../uploads/book-images/<?php echo htmlspecialchars($book['book_image']); ?>" 
                                              alt="<?php echo htmlspecialchars($book['title']); ?>"
                                              style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
                                     <?php else: ?>

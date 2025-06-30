@@ -180,17 +180,11 @@ if (!in_array(strtoupper($sort_order), $valid_orders)) {
 }
 
 try {
-    // Get students with their borrowing statistics
+    // Get students (simplified query without borrowing stats)
     $query = "
-        SELECT 
-            u.*,
-            COUNT(bb.id) as total_borrowed,
-            COUNT(CASE WHEN bb.status = 'borrowed' THEN 1 END) as currently_borrowed,
-            COUNT(CASE WHEN bb.status = 'borrowed' AND bb.due_date < CURDATE() THEN 1 END) as overdue_books
+        SELECT u.*
         FROM users u
-        LEFT JOIN borrowed_books bb ON u.user_id = bb.user_id
         $where_clause
-        GROUP BY u.user_id
         ORDER BY $sort_by $sort_order
     ";
     
@@ -201,7 +195,7 @@ try {
     // Get total count
     $totalStudents = count($students);
     
-    // Get overall statistics
+    // Get overall statistics (simplified)
     $statsQuery = "
         SELECT 
             COUNT(DISTINCT u.user_id) as total_students,
@@ -331,7 +325,7 @@ function buildUrl($newParams = []) {
         
         .table-header {
             background: var(--orange);
-            color: white;
+            color: black;
             padding: 1rem 1.5rem;
             display: flex;
             justify-content: space-between;
@@ -366,13 +360,6 @@ function buildUrl($newParams = []) {
             background: #f8f9fa;
         }
         
-        .sort-indicator {
-            position: absolute;
-            right: 0.5rem;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-        
         .student-avatar {
             width: 40px;
             height: 40px;
@@ -400,31 +387,6 @@ function buildUrl($newParams = []) {
             margin: 0;
             color: #666;
             font-size: 0.9rem;
-        }
-        
-        .borrowing-stats {
-            display: flex;
-            gap: 1rem;
-            font-size: 0.9rem;
-        }
-        
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 0.5rem;
-            background: #f8f9fa;
-            border-radius: 6px;
-            min-width: 60px;
-        }
-        
-        .stat-number {
-            font-weight: 600;
-            color: var(--orange);
-        }
-        
-        .stat-overdue {
-            color: #e74c3c;
         }
         
         .btn-delete {
@@ -515,11 +477,6 @@ function buildUrl($newParams = []) {
             .data-table th,
             .data-table td {
                 padding: 0.5rem;
-            }
-            
-            .borrowing-stats {
-                flex-direction: column;
-                gap: 0.5rem;
             }
         }
 
@@ -688,7 +645,7 @@ function buildUrl($newParams = []) {
             <div class="students-table">
                 <div class="table-header">
                     <div>
-                        <h2>📋 Students List (<?php echo $totalStudents; ?> total)</h2>
+                        <h2>📋 Students List (<?php echo $totalStudents; ?>)</h2>
                         <p>Sort by: 
                             <a href="<?php echo buildUrl(['sort' => 'first_name', 'order' => $sort_by === 'first_name' && $sort_order === 'ASC' ? 'DESC' : 'ASC']); ?>">Name</a> | 
                             <a href="<?php echo buildUrl(['sort' => 'username', 'order' => $sort_by === 'username' && $sort_order === 'ASC' ? 'DESC' : 'ASC']); ?>">Username</a> | 
@@ -711,7 +668,6 @@ function buildUrl($newParams = []) {
                             <tr>
                                 <th>Student</th>
                                 <th>Contact</th>
-                                <th>Borrowing Activity</th>
                                 <th>Join Date</th>
                                 <th>Actions</th>
                             </tr>
@@ -734,31 +690,12 @@ function buildUrl($newParams = []) {
                                         <div><?php echo htmlspecialchars($student['email']); ?></div>
                                         <small style="color: #666;">ID: <?php echo $student['user_id']; ?></small>
                                     </td>
-                                    <td>
-                                        <div class="borrowing-stats">
-                                            <div class="stat-item">
-                                                <div class="stat-number"><?php echo $student['total_borrowed']; ?></div>
-                                                <div>Total</div>
-                                            </div>
-                                            <div class="stat-item">
-                                                <div class="stat-number"><?php echo $student['currently_borrowed']; ?></div>
-                                                <div>Current</div>
-                                            </div>
-                                            <?php if ($student['overdue_books'] > 0): ?>
-                                                <div class="stat-item">
-                                                    <div class="stat-number stat-overdue"><?php echo $student['overdue_books']; ?></div>
-                                                    <div>Overdue</div>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
                                     <td><?php echo date('M j, Y', strtotime($student['created_at'])); ?></td>
                                     <td>
                                         <form method="POST" style="display: inline;" 
                                               onsubmit="return confirm('Are you sure you want to delete this student? This action cannot be undone.');">
                                             <input type="hidden" name="user_id" value="<?php echo $student['user_id']; ?>">
-                                            <button type="submit" name="delete_student" class="btn-delete"
-                                                    <?php echo $student['currently_borrowed'] > 0 ? 'disabled title="Cannot delete - student has borrowed books"' : ''; ?>>
+                                            <button type="submit" name="delete_student" class="btn-delete">
                                                 🗑️ Delete
                                             </button>
                                         </form>
