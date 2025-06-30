@@ -73,6 +73,29 @@ function getStatusDisplay($due_date, $status) {
         return ['text' => 'On Time', 'class' => 'status-green'];
     }
 }
+
+// Get available categories for the dropdown
+$categories = [];
+try {
+    $cat_stmt = $conn->prepare("SELECT DISTINCT category FROM books WHERE category IS NOT NULL AND category != '' ORDER BY category ASC");
+    $cat_stmt->execute();
+    $categories = $cat_stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    error_log("Error fetching categories: " . $e->getMessage());
+}
+
+// Get year range for published years
+$year_range = [];
+try {
+    $year_stmt = $conn->prepare("SELECT MIN(published_year) as min_year, MAX(published_year) as max_year FROM books WHERE published_year IS NOT NULL");
+    $year_stmt->execute();
+    $year_data = $year_stmt->fetch();
+    if ($year_data && $year_data['min_year'] && $year_data['max_year']) {
+        $year_range = ['min' => $year_data['min_year'], 'max' => $year_data['max_year']];
+    }
+} catch (PDOException $e) {
+    error_log("Error fetching year range: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -85,6 +108,39 @@ function getStatusDisplay($due_date, $status) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
+    <style>
+        /* Additional styles for enhanced search form */
+        .year-inputs {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .year-inputs input {
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .year-separator {
+            font-weight: bold;
+            color: #666;
+            padding: 0 0.25rem;
+        }
+        
+        .search-form .form-row-year {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .search-form .form-row-year label {
+            font-family: 'Sniglet', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--black);
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
 
@@ -150,9 +206,24 @@ function getStatusDisplay($due_date, $status) {
                 <input type="text" name="author" placeholder="Author">
                 <select name="category">
                     <option value="">Category</option>
-                    <option value="Fiction">Fiction</option>
-                    <option value="Non-Fiction">Non-Fiction</option>
+                    <?php if (!empty($categories)): ?>
+                        <?php foreach ($categories as $category): ?>
+                            <option value="<?php echo htmlspecialchars($category); ?>">
+                                <?php echo htmlspecialchars($category); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <option value="Fiction">Fiction</option>
+                        <option value="Non-Fiction">Non-Fiction</option>
+                        <option value="Romance">Romance</option>
+                    <?php endif; ?>
                 </select>
+            </div>
+            <div class="form-row">
+                <input type="number" name="published_year" placeholder="Published Year (e.g., 1997)" 
+                       min="<?php echo $year_range['min'] ?? 1000; ?>" 
+                       max="<?php echo date('Y'); ?>" 
+                       title="Enter published year">
             </div>
             <div class="form-row">
                 <input type="text" name="book_id" placeholder="Book ID (Optional)">

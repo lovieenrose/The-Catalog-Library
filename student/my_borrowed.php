@@ -16,6 +16,8 @@ if ($user_id) {
                 b.title,
                 b.author,
                 b.category,
+                b.published_year,
+                b.book_image,
                 bb.borrow_date,
                 bb.due_date,
                 bb.status,
@@ -123,17 +125,30 @@ function getDaysRemaining($due_date) {
                 <?php 
                 $status_info = getStatusDisplay($book['due_date'], $book['status']);
                 $days_remaining = getDaysRemaining($book['due_date']);
+                
+                // Handle book image
+                $book_image_path = '../uploads/book-images/' . ($book['book_image'] ?? 'default_book.jpg');
+                $default_image_path = '../uploads/book-images/default_book.jpg';
+                
+                // Check if book image exists, fallback to default
+                if (!$book['book_image'] || !file_exists($book_image_path)) {
+                    $book_image_path = $default_image_path;
+                }
                 ?>
                 <div class="borrowed-book-card">
                     <div class="book-image-container">
-                        <div class="book-image"></div>
+                        <div class="book-image">
+                            <img src="<?php echo htmlspecialchars($book_image_path); ?>" 
+                                 alt="<?php echo htmlspecialchars($book['title']); ?>"
+                                 onerror="this.src='../uploads/book-images/default_book.jpg'">
+                        </div>
                     </div>
                     <div class="book-details">
                         <h3 class="book-title"><?php echo htmlspecialchars($book['title']); ?></h3>
                         <div class="book-meta">
                             <p><strong>Author:</strong> <?php echo htmlspecialchars($book['author'] ?? 'Unknown'); ?></p>
                             <p><strong>Category:</strong> <?php echo htmlspecialchars($book['category'] ?? 'General'); ?></p>
-                            <p><strong>Published:</strong> 1937</p>
+                            <p><strong>Published:</strong> <?php echo htmlspecialchars($book['published_year'] ?? 'N/A'); ?></p>
                         </div>
                         <div class="borrow-info">
                             <div class="borrow-details">

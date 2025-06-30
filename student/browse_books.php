@@ -19,12 +19,13 @@ if ($user_id) {
     }
 }
 
-// Handle search parameters
+// Handle search and filter parameters
 $search_title = $_GET['title'] ?? '';
 $search_author = $_GET['author'] ?? '';
 $search_category = $_GET['category'] ?? '';
 $search_book_id = $_GET['book_id'] ?? '';
 $search_status = $_GET['status'] ?? '';
+$sort_by = $_GET['sort_by'] ?? 'title_asc'; // Default sort
 
 // Build the WHERE clause for search
 $where_conditions = [];
@@ -57,9 +58,34 @@ if (!empty($search_status)) {
 
 $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
-// Get all books with search filters
+// Build ORDER BY clause based on sort_by parameter
+$order_clause = "ORDER BY ";
+switch ($sort_by) {
+    case 'title_asc':
+        $order_clause .= "title ASC";
+        break;
+    case 'title_desc':
+        $order_clause .= "title DESC";
+        break;
+    case 'author_asc':
+        $order_clause .= "author ASC, title ASC";
+        break;
+    case 'author_desc':
+        $order_clause .= "author DESC, title ASC";
+        break;
+    case 'year_asc':
+        $order_clause .= "published_year ASC, title ASC";
+        break;
+    case 'year_desc':
+        $order_clause .= "published_year DESC, title ASC";
+        break;
+    default:
+        $order_clause .= "title ASC";
+}
+
+// Get all books with search filters and sorting
 try {
-    $query = "SELECT * FROM books $where_clause ORDER BY title ASC";
+    $query = "SELECT book_id, title, author, category, published_year, status, book_image FROM books $where_clause $order_clause";
     $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -69,6 +95,19 @@ try {
 }
 
 $total_books = count($books);
+
+// Get filter options display text
+function getFilterDisplayText($sort_by) {
+    switch ($sort_by) {
+        case 'title_asc': return 'A to Z';
+        case 'title_desc': return 'Z to A';
+        case 'author_asc': return 'Author (A-Z)';
+        case 'author_desc': return 'Author (Z-A)';
+        case 'year_asc': return 'Year (Oldest First)';
+        case 'year_desc': return 'Year (Newest First)';
+        default: return 'A to Z';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -81,7 +120,78 @@ $total_books = count($books);
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
-
+    <style>
+        /* Filter dropdown styles */
+        .filter-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .filter-btn {
+            background-color: var(--blush);
+            border: 1px solid var(--black);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Sniglet', sans-serif;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        .filter-btn:hover {
+            background-color: var(--pinkish);
+        }
+        
+        .filter-options {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background-color: white;
+            border: 1px solid var(--black);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 180px;
+            margin-top: 0.25rem;
+        }
+        
+        .filter-options.show {
+            display: block;
+        }
+        
+        .filter-option {
+            padding: 0.7rem 1rem;
+            cursor: pointer;
+            font-family: 'Sniglet', sans-serif;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease;
+        }
+        
+        .filter-option:last-child {
+            border-bottom: none;
+        }
+        
+        .filter-option:hover {
+            background-color: var(--blush);
+        }
+        
+        .filter-option.active {
+            background-color: var(--pinkish);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .current-filter {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+    </style>
 </head>
 <body>
 
@@ -120,7 +230,8 @@ $total_books = count($books);
         </div>
     <?php endif; ?>
     
-    <form method="GET" action="browse_books.php">
+    <form method="GET" action="browse_books.php" id="searchForm">
+        <input type="hidden" name="sort_by" value="<?php echo htmlspecialchars($sort_by); ?>">
         <div class="search-bar">
             <input type="text" name="title" placeholder="Search By Title" value="<?php echo htmlspecialchars($search_title); ?>">
             <button type="submit">🔍</button>
@@ -132,9 +243,34 @@ $total_books = count($books);
 <section class="books-section">
     <div class="books-header">
         <h3>All Books (<?php echo $total_books; ?>)</h3>
-        <div class="filter-btn">
-            <span>⚙️</span>
-            <span>Filter</span>
+        <div class="filter-dropdown">
+            <div class="filter-btn" onclick="toggleFilterDropdown()">
+                <span>⚙️</span>
+                <span>Filter</span>
+            </div>
+            <div class="current-filter">
+                Sorted by: <?php echo getFilterDisplayText($sort_by); ?>
+            </div>
+            <div class="filter-options" id="filterDropdown">
+                <div class="filter-option <?php echo $sort_by === 'title_asc' ? 'active' : ''; ?>" onclick="applyFilter('title_asc')">
+                    A to Z
+                </div>
+                <div class="filter-option <?php echo $sort_by === 'title_desc' ? 'active' : ''; ?>" onclick="applyFilter('title_desc')">
+                    Z to A
+                </div>
+                <div class="filter-option <?php echo $sort_by === 'author_asc' ? 'active' : ''; ?>" onclick="applyFilter('author_asc')">
+                    Author (A-Z)
+                </div>
+                <div class="filter-option <?php echo $sort_by === 'author_desc' ? 'active' : ''; ?>" onclick="applyFilter('author_desc')">
+                    Author (Z-A)
+                </div>
+                <div class="filter-option <?php echo $sort_by === 'year_asc' ? 'active' : ''; ?>" onclick="applyFilter('year_asc')">
+                    Year (Oldest First)
+                </div>
+                <div class="filter-option <?php echo $sort_by === 'year_desc' ? 'active' : ''; ?>" onclick="applyFilter('year_desc')">
+                    Year (Newest First)
+                </div>
+            </div>
         </div>
     </div>
 
@@ -148,15 +284,29 @@ $total_books = count($books);
     <?php else: ?>
         <div class="books-grid">
             <?php foreach ($books as $book): ?>
+                <?php
+                // Handle book image
+                $book_image_path = '../uploads/book-images/' . ($book['book_image'] ?? 'default_book.jpg');
+                $default_image_path = '../uploads/book-images/default_book.jpg';
+                
+                // Check if book image exists, fallback to default
+                if (!$book['book_image'] || !file_exists($book_image_path)) {
+                    $book_image_path = $default_image_path;
+                }
+                ?>
                 <div class="book-card">
                     <div class="book-content">
-                        <div class="book-image"></div>
+                        <div class="book-image">
+                            <img src="<?php echo htmlspecialchars($book_image_path); ?>" 
+                                 alt="<?php echo htmlspecialchars($book['title']); ?>" 
+                                 onerror="this.src='../uploads/book-images/default_book.jpg'">
+                        </div>
                         <div class="book-details">
                             <div class="book-info">
                                 <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
                                 <div class="book-meta"><strong>Author:</strong> <?php echo htmlspecialchars($book['author'] ?? 'Unknown'); ?></div>
                                 <div class="book-meta"><strong>Category:</strong> <?php echo htmlspecialchars($book['category'] ?? 'General'); ?></div>
-                                <div class="book-meta"><strong>Published:</strong> <?php echo htmlspecialchars($book['created_at'] ? date('Y', strtotime($book['created_at'])) : 'N/A'); ?></div>
+                                <div class="book-meta"><strong>Published:</strong> <?php echo htmlspecialchars($book['published_year'] ?? 'N/A'); ?></div>
                                 <div class="book-meta"><strong>Status:</strong> 
                                     <span class="book-status <?php echo $book['status'] === 'Available' ? 'status-available' : 'status-borrowed'; ?>">
                                         <?php echo htmlspecialchars($book['status']); ?>
@@ -208,6 +358,29 @@ let currentBookId = null;
 const borrowedCount = <?php echo $borrowed_count; ?>;
 const maxBorrowLimit = 2;
 
+// Filter functionality
+function toggleFilterDropdown() {
+    const dropdown = document.getElementById('filterDropdown');
+    dropdown.classList.toggle('show');
+}
+
+function applyFilter(sortBy) {
+    const url = new URL(window.location);
+    url.searchParams.set('sort_by', sortBy);
+    window.location.href = url.toString();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('filterDropdown');
+    const filterBtn = event.target.closest('.filter-btn');
+    
+    if (!filterBtn && !dropdown.contains(event.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+
+// Existing borrow modal functionality
 function showBorrowModal(bookId, title, author, category) {
     currentBookId = bookId;
     document.getElementById('modalBookTitle').textContent = title;
