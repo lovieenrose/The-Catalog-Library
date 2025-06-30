@@ -99,7 +99,7 @@
     background-color: rgba(139, 148, 158, 0.2);
 }
 
-/* Logout Button */
+/* Logout Button - WITH BLACK TEXT OUTLINE */
 .logout-btn {
     background-color: var(--blush);
     color: white;
@@ -110,6 +110,12 @@
     font-weight: 600;
     font-size: 1rem;
     transition: background-color 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .logout-btn:hover {
@@ -196,6 +202,7 @@
     margin-bottom: 2rem;
 }
 
+/* No Books Button - WITH BLACK TEXT OUTLINE */
 .no-books-message .btn {
     background-color: var(--caramel);
     color: var(--white);
@@ -205,6 +212,12 @@
     font-family: 'Sniglet', system-ui, sans-serif;
     font-weight: 600;
     transition: background-color 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .no-books-message .btn:hover {

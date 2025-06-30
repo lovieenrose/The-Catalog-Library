@@ -98,7 +98,7 @@
     background-color: rgba(139, 148, 158, 0.2);
 }
 
-/* Logout Button */
+/* Logout Button - WITH BLACK TEXT OUTLINE */
 .logout-btn {
     background-color: var(--blush);
     color: white;
@@ -109,6 +109,12 @@
     font-weight: 600;
     font-size: 1rem;
     transition: background-color 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .logout-btn:hover {
@@ -361,7 +367,7 @@
     color: #666;
 }
 
-/* Buttons */
+/* Buttons - WITH BLACK TEXT OUTLINE */
 .dashboard-box .btn {
     display: block;
     width: 100%;
@@ -378,6 +384,13 @@
     cursor: pointer;
     transition: background-color 0.3s ease;
     flex-shrink: 0;
+    color: var(--white);
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .dashboard-box .btn:hover {

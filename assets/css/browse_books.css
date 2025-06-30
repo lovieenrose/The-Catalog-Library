@@ -110,6 +110,12 @@
     font-weight: 600;
     font-size: 1rem;
     transition: background-color 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .logout-btn:hover {
@@ -216,6 +222,12 @@
     cursor: pointer;
     font-weight: bold;
     transition: background 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .search-bar button:hover {
@@ -283,6 +295,14 @@
     align-items: center;
     gap: 8px;
     transition: all 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
+    color: var(--white);
+    font-weight: bold;
 }
 
 .filter-btn:hover {
@@ -401,7 +421,7 @@
     width: 80%;
 }
 
-/* Borrow Button */
+/* Borrow Button - UPDATED WITH BLACK TEXT OUTLINE */
 .borrow-btn {
     background: var(--caramel);
     color: var(--white);
@@ -416,6 +436,12 @@
     font-family: 'Sniglet', system-ui, sans-serif;
     font-weight: 600;
     flex-shrink: 0;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .borrow-btn:hover:not(:disabled) {
@@ -425,7 +451,13 @@
 .borrow-btn:disabled {
     background: #ccc;
     cursor: not-allowed;
-    color: #666;
+    color: #969696;
+    /* Lighter text shadow for disabled state */
+    text-shadow: 
+        -1px -1px 0 #333,
+        1px -1px 0 #333,
+        -1px 1px 0 #333,
+        1px 1px 0 #333;
 }
 
 .borrow-btn:disabled:hover {
@@ -452,6 +484,15 @@
 
 .no-books p {
     margin-bottom: 20px;
+}
+
+.no-books .btn {
+    /* BLACK TEXT OUTLINE FOR NO BOOKS BUTTON */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 /* Borrow Modal */
@@ -579,6 +620,7 @@
     justify-content: center;
 }
 
+/* MODAL BUTTONS WITH BLACK TEXT OUTLINE */
 .btn-confirm {
     background-color: #28a745;
     color: var(--white);
@@ -591,6 +633,12 @@
     cursor: pointer;
     transition: background-color 0.3s ease;
     min-width: 120px;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .btn-confirm:hover {
@@ -609,6 +657,12 @@
     cursor: pointer;
     transition: background-color 0.3s ease;
     min-width: 120px;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .btn-cancel:hover {
