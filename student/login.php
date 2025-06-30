@@ -3,6 +3,12 @@ session_start();
 require_once '../includes/db.php';
 
 $error = "";
+$success = "";
+
+// Check for logout success message
+if (isset($_GET['logout']) && $_GET['logout'] === 'success') {
+    $success = "You have been successfully logged out.";
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $student_number = trim($_POST['student_number']);
@@ -62,6 +68,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <?php if ($error): ?>
         <p style="color: red;"><?php echo htmlspecialchars($error); ?></p>
+    <?php endif; ?>
+
+    <?php if ($success): ?>
+        <p style="color: green;"><?php echo htmlspecialchars($success); ?></p>
     <?php endif; ?>
 
     <form method="post" class="login-form">

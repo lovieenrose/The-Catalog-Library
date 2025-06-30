@@ -178,15 +178,15 @@ try {
     <div class="book-catalog">
         <h4>Fiction Books</h4>
         <div class="book-row">
-            <img src="../uploads/book-images/fic1.jpg" alt="Fiction Book">
-            <img src="../uploads/book-images/fic2.jpg" alt="Fiction Book">
-            <img src="../uploads/book-images/fic3.jpg" alt="Fiction Book">
+            <img src="../uploads/book-images/fic1.png" alt="Fiction Book">
+            <img src="../uploads/book-images/fic2.png" alt="Fiction Book">
+            <img src="../uploads/book-images/fic3.png" alt="Fiction Book">
         </div>
         <h4>Non-Fiction Books</h4>
         <div class="book-row">
-            <img src="../uploads/book-images/fic1.jpg" alt="Non-Fiction Book">
-            <img src="../uploads/book-images/fic2.jpg" alt="Non-Fiction Book">
-            <img src="../uploads/book-images/fic3.jpg" alt="Non-Fiction Book">
+            <img src="../uploads/book-images/nonfic1.png" alt="Non-Fiction Book">
+            <img src="../uploads/book-images/nonfic2.png" alt="Non-Fiction Book">
+            <img src="../uploads/book-images/nonfic3.png" alt="Non-Fiction Book">
         </div>
         <div class="more-books-text">
             More books available in Browse Books!
