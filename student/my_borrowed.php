@@ -126,21 +126,19 @@ function getDaysRemaining($due_date) {
                 $status_info = getStatusDisplay($book['due_date'], $book['status']);
                 $days_remaining = getDaysRemaining($book['due_date']);
                 
-                // Handle book image
-                $book_image_path = '../uploads/book-images/' . ($book['book_image'] ?? 'default_book.jpg');
-                $default_image_path = '../uploads/book-images/default_book.jpg';
-                
-                // Check if book image exists, fallback to default
-                if (!$book['book_image'] || !file_exists($book_image_path)) {
-                    $book_image_path = $default_image_path;
+                // Handle book image - carefully check if image exists
+                $book_image_src = '';
+                if (!empty($book['book_image'])) {
+                    $book_image_path = '../uploads/book-images/' . $book['book_image'];
+                    if (file_exists($book_image_path)) {
+                        $book_image_src = $book_image_path;
+                    }
                 }
+                // If no valid image, keep it empty to show brown placeholder
                 ?>
                 <div class="borrowed-book-card">
                     <div class="book-image-container">
-                        <div class="book-image">
-                            <img src="<?php echo htmlspecialchars($book_image_path); ?>" 
-                                 alt="<?php echo htmlspecialchars($book['title']); ?>"
-                                 onerror="this.src='../uploads/book-images/default_book.jpg'">
+                        <div class="book-image" <?php if ($book_image_src): ?>style="background-image: url('<?php echo htmlspecialchars($book_image_src); ?>'); background-size: cover; background-position: center;"<?php endif; ?>>
                         </div>
                     </div>
                     <div class="book-details">

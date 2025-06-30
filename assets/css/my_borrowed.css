@@ -229,6 +229,7 @@
     display: flex;
     gap: 1.5rem;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    align-items: flex-start;
 }
 
 .borrowed-book-card:hover {
@@ -236,18 +237,65 @@
     box-shadow: 6px 6px 0 var(--caramel);
 }
 
-/* Book Image Container */
+/* Book Image Container - Force dimensions */
 .book-image-container {
     flex-shrink: 0;
+    width: 120px !important;
+    height: 180px !important;
+    overflow: hidden !important;
 }
 
+/* Book Image - Keeps brown placeholder, shows image if available */
 .book-image {
-    width: 120px;
-    height: 180px;
+    width: 120px !important;
+    height: 180px !important;
     background: var(--caramel);
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     border: 2px solid #8B4513;
+    overflow: hidden !important;
+    position: relative;
+    display: block !important;
+    box-sizing: border-box !important;
+}
+
+/* Image styling - fits perfectly within the brown container */
+.book-image img {
+    width: 120px !important;
+    height: 180px !important;
+    object-fit: cover !important;
+    border-radius: 6px;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 1;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 120px !important;
+    min-height: 180px !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+}
+
+/* Extra specificity to override any other CSS */
+.borrowed-book-card .book-image-container {
+    width: 120px !important;
+    height: 180px !important;
+    overflow: hidden !important;
+}
+
+.borrowed-book-card .book-image {
+    width: 120px !important;
+    height: 180px !important;
+    overflow: hidden !important;
+}
+
+.borrowed-book-card .book-image img {
+    width: 120px !important;
+    height: 180px !important;
+    object-fit: cover !important;
 }
 
 /* Book Details */
@@ -255,14 +303,16 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0; /* Prevents flex item from overflowing */
 }
 
 .book-title {
     font-size: 1.4rem;
     font-weight: bold;
     color: var(--black);
-    margin-bottom: 1rem;
+    margin: 0 0 1rem 0;
     font-family: 'Sniglet', system-ui, sans-serif;
+    line-height: 1.2;
 }
 
 .book-meta {
@@ -297,10 +347,12 @@
 /* Status Styling */
 .status.status-ontime {
     color: #28a745;
+    font-weight: bold;
 }
 
 .status.status-overdue {
     color: #dc3545;
+    font-weight: bold;
 }
 
 /* Responsive Design */
@@ -327,7 +379,7 @@
         text-align: center;
     }
     
-    .book-image {
+    .book-image-container {
         margin-bottom: 1rem;
     }
     
