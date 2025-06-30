@@ -432,8 +432,8 @@ function buildUrl($newParams = []) {
         }
         
         .btn-edit {
-            background: var(--orange);
-            color: black;
+            background: var(--pinkish);
+            color: white;
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 6px;
