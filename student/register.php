@@ -101,6 +101,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
         
         <button type="submit" class="btn">REGISTER</button>
+        <a href="../index.php">
+        <button type="button" class="btn">BACK</button>
+        </a>
     </form>
     
     <div style="margin-top: 20px; text-align: center;">
