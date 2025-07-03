@@ -140,6 +140,21 @@ try {
             color: var(--black);
             white-space: nowrap;
         }
+
+        .form-row .images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .ads-image {
+            width: 100%;        /* or a specific value like 300px */
+            max-width: 400px;   /* ensures it doesn’t grow too large */
+            height: auto;       /* maintains aspect ratio */
+            display: block;     /* removes extra spacing below image */
+            top margin: 10px auto;  /* centers the image horizontally */
+        }
+
     </style>
 </head>
 <body>
@@ -234,6 +249,9 @@ try {
                     <option value="Available">Available</option>
                     <option value="Unavailable">Unavailable</option>
                 </select>
+            </div>
+            <div class="form-row">
+                <img src="../assets/images/ads.png" alt="Advertisement" class="ads-image">
             </div>
             <button type="submit" class="btn">Search</button>
         </form>
