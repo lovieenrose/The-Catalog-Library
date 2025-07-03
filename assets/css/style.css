@@ -167,9 +167,8 @@ html, body {
     box-shadow: 4px 4px var(--caramel);
     position: relative;
     z-index: 10;
-    margin-bottom: 5rem;
 }
-
+    
 /* Logo Above Form */
 .logo-wrapper {
     margin-top: -70px;

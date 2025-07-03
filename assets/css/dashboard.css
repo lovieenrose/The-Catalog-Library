@@ -150,6 +150,70 @@
     line-height: 1.6;
 }
 
+/* FIXED LOGIN CONTAINER POSITIONING */
+.login-container {
+    width: 90%;
+    background-color: #fce6e0;
+    margin: 2rem auto; /* Changed from negative margin */
+    padding: 2rem;
+    border-radius: 1.5rem;
+    max-width: 400px;
+    border: 1px solid var(--black);
+    text-align: center;
+    box-shadow: 4px 4px var(--caramel);
+    position: relative;
+    z-index: 10;
+    min-height: auto; /* Allow natural height */
+}
+
+/* FIXED LOGO WRAPPER */
+.logo-wrapper {
+    margin-top: 0; /* Removed negative margin */
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.logo-img {
+    width: 150px;
+    height: auto;
+    border-radius: 50%;
+    border: 2px solid var(--black);
+    background-color: var(--white);
+    padding: 0.2rem;
+}
+
+/* ENSURE FULL PAGE LAYOUT */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Sniglet', system-ui, sans-serif;
+    background-color: var(--pinkish);
+    color: var(--black);
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+/* PAGE WRAPPER FOR PROPER LAYOUT */
+.page-wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* MAIN CONTENT AREA */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    min-height: calc(100vh - 200px); /* Account for banner and footer */
+}
+
 /* Dashboard Container - Equal Heights */
 .dashboard-grid {
     display: grid;
@@ -397,7 +461,7 @@
     background-color: var(--pinkish);
 }
 
-/* Responsive Design */
+/* RESPONSIVE DESIGN - IMPROVED */
 @media (max-width: 1024px) {
     .dashboard-grid {
         grid-template-columns: 1fr 1fr;
@@ -418,6 +482,11 @@
     
     .logo-title h1 {
         font-size: 1.5rem;
+    }
+    
+    .login-container {
+        margin: 1rem auto;
+        padding: 1.5rem;
     }
 }
 
@@ -477,5 +546,66 @@
     
     .dashboard-box {
         min-height: auto;
+        height: auto; /* Allow flexible height on mobile */
     }
+    
+    .login-container {
+        width: 95%;
+        margin: 1rem auto;
+        padding: 1rem;
+    }
+    
+    .main-content {
+        min-height: calc(100vh - 150px); /* Adjust for mobile */
+        padding: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        width: 98%;
+        margin: 0.5rem auto;
+        padding: 1rem;
+    }
+    
+    .logo-img {
+        width: 120px;
+    }
+    
+    .banner-section {
+        min-height: 250px;
+    }
+    
+    .welcome-content h2 {
+        font-size: 1.8rem;
+    }
+}
+
+/* UTILITY CLASSES FOR BETTER SPACING */
+.mt-auto {
+    margin-top: auto;
+}
+
+.mb-auto {
+    margin-bottom: auto;
+}
+
+.flex-grow {
+    flex-grow: 1;
+}
+
+/* PREVENT CONTENT CUTOFF */
+.safe-area {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* IMPROVED SCROLL BEHAVIOR */
+html {
+    scroll-behavior: smooth;
+}
+
+/* BETTER FOCUS INDICATORS */
+*:focus {
+    outline: 2px solid var(--caramel);
+    outline-offset: 2px;
 }

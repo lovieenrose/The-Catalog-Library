@@ -88,7 +88,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <input type="password" name="password" placeholder="Admin Password" required>
         &nbsp;
         <button type="submit" class="btn">LOGIN</button>
-        <button type="button" class="btn" onclick="window.history.back();">BACK</button>
+        <a href="../index.php">
+        <button type="button" class="btn">BACK</button>
+        </a>    
     </form>
 </div>
 
