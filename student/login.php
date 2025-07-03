@@ -162,7 +162,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
         
         <div class="forgot-link">
-            <a href="../forgot_password.php">Forgot password?</a>
+            <a href="../student/forgot_password.php">Forgot password?</a>
         </div>
         <button type="submit" class="btn">LOGIN</button>
         <button type="button" class="btn" onclick="window.history.back();">BACK</button>
