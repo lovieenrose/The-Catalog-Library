@@ -434,9 +434,6 @@ try {
                 <div class="admin-avatar">
                         <img src="../assets/images/admin-icon.jpg" alt="Admin Icon" class="admin-avatar">
                     </div>                    
-                    <div class="admin-avatar">
-                        <img src="../assets/images/admin-icon.jpg" alt="Admin Icon" class="admin-avatar">
-                    </div>
                     <div class="admin-details">
                         <h3><?php echo htmlspecialchars($_SESSION['username'] ?? 'Admin User'); ?></h3>
                         <p>Library Administrator</p>

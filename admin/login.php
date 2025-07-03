@@ -5,7 +5,6 @@ require_once '../includes/db.php';
 $error = "";
 $success_message = "";
 
-// Check for logout success message
 if (isset($_GET['message'])) {
     $success_message = htmlspecialchars($_GET['message']);
 }
