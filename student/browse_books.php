@@ -314,12 +314,20 @@ function getFilterDisplayText($sort_by) {
                                 </div>
                             </div>
                             <div class="button-container">
-                                <?php if ($book['status'] === 'Available'): ?>
-                                    <button class="borrow-btn" onclick="showBorrowModal(<?php echo $book['book_id']; ?>, '<?php echo addslashes($book['title']); ?>', '<?php echo addslashes($book['author'] ?? 'Unknown'); ?>', '<?php echo addslashes($book['category'] ?? 'General'); ?>')">Borrow Now</button>
-                                <?php else: ?>
-                                    <button class="borrow-btn" disabled>Not Available</button>
-                                <?php endif; ?>
-                            </div>
+    <?php if ($book['status'] === 'Available'): ?>
+        <button class="borrow-btn" onclick="showBorrowModal(
+            <?php echo $book['book_id']; ?>, 
+            '<?php echo addslashes($book['title']); ?>', 
+            '<?php echo addslashes($book['author'] ?? 'Unknown'); ?>', 
+            '<?php echo addslashes($book['category'] ?? 'General'); ?>',
+            '<?php echo addslashes($book['published_year'] ?? 'N/A'); ?>',
+            '<?php echo addslashes($book_image_path); ?>',
+            '<?php echo addslashes($book['status']); ?>'
+        )">Borrow Now</button>
+    <?php else: ?>
+        <button class="borrow-btn" disabled>Not Available</button>
+    <?php endif; ?>
+</div>
                         </div>
                     </div>
                 </div>
@@ -333,13 +341,16 @@ function getFilterDisplayText($sort_by) {
     <div class="modal-content">
         <h2>You are about to Borrow:</h2>
         <div class="modal-book-info">
-            <div class="modal-book-image"></div>
+            <div class="modal-book-image">
+                <img id="modalBookImage" src="" alt="" 
+                     onerror="this.src='../uploads/book-images/default_book.jpg'">
+            </div>
             <div class="modal-book-details">
                 <h3 id="modalBookTitle"></h3>
                 <p><strong>Author:</strong> <span id="modalBookAuthor"></span></p>
                 <p><strong>Category:</strong> <span id="modalBookCategory"></span></p>
-                <p><strong>Published:</strong> <span id="modalBookPublished">1937</span></p>
-                <p><strong>Status:</strong> <span class="status-available">Available</span></p>
+                <p><strong>Published:</strong> <span id="modalBookPublished"></span></p>
+                <p><strong>Status:</strong> <span class="status-available"></span></p>
             </div>
         </div>
         <div class="borrow-note">
@@ -354,92 +365,63 @@ function getFilterDisplayText($sort_by) {
 </div>
 
 <script>
-let currentBookId = null;
-const borrowedCount = <?php echo $borrowed_count; ?>;
-const maxBorrowLimit = 2;
-
-// Filter functionality
-function toggleFilterDropdown() {
-    const dropdown = document.getElementById('filterDropdown');
-    dropdown.classList.toggle('show');
-}
-
-function applyFilter(sortBy) {
-    const url = new URL(window.location);
-    url.searchParams.set('sort_by', sortBy);
-    window.location.href = url.toString();
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(event) {
-    const dropdown = document.getElementById('filterDropdown');
-    const filterBtn = event.target.closest('.filter-btn');
+function showBorrowModal(bookId, title, author, category, publishedYear, imagePath, status) {
+    console.log('showBorrowModal called with:', {
+        bookId: bookId,
+        title: title, 
+        author: author, 
+        category: category, 
+        publishedYear: publishedYear, 
+        imagePath: imagePath,
+        status: status
+    });
     
-    if (!filterBtn && !dropdown.contains(event.target)) {
-        dropdown.classList.remove('show');
-    }
-});
-
-// Existing borrow modal functionality
-function showBorrowModal(bookId, title, author, category) {
     currentBookId = bookId;
+    
+    // Set ALL book details
     document.getElementById('modalBookTitle').textContent = title;
     document.getElementById('modalBookAuthor').textContent = author;
     document.getElementById('modalBookCategory').textContent = category;
+    document.getElementById('modalBookPublished').textContent = publishedYear || 'N/A';
+    
+    // Update status
+    const statusElement = document.querySelector('#borrowModal .status-available');
+    if (statusElement) {
+        statusElement.textContent = status || 'Available';
+    }
+    
+    // Handle the image - with better debugging
+    const modalBookImage = document.getElementById('modalBookImage');
+    console.log('Modal image element found:', modalBookImage);
+    console.log('Image path received:', imagePath);
+    
+    if (modalBookImage) {
+        // Set the image source
+        modalBookImage.src = imagePath || '../uploads/book-images/default_book.jpg';
+        modalBookImage.alt = title;
+        modalBookImage.style.display = 'image'; // Ensure the image is displayed
+        
+        console.log('Image source set to:', modalBookImage.src);
+        
+        // Debug image loading
+        modalBookImage.onload = function() {
+            console.log('✅ Image loaded successfully:', this.src);
+        };
+        
+        modalBookImage.onerror = function() {
+            console.log('❌ Image failed to load:', imagePath);
+            console.log('🔄 Falling back to default image');
+            this.src = '../uploads/book-images/default_book.jpg';
+        };
+    } else {
+        console.error('❌ Modal image element not found!');
+    }
+    
+    // Show modal
     document.getElementById('borrowModal').style.display = 'block';
 }
-
-function closeBorrowModal() {
-    document.getElementById('borrowModal').style.display = 'none';
-    currentBookId = null;
-}
-
-document.getElementById('confirmBorrow').onclick = function() {
-    if (currentBookId) {
-        // Check borrowing limit before proceeding
-        if (borrowedCount >= maxBorrowLimit) {
-            alert('⚠️ Borrowing Limit Reached!\n\nYou have already borrowed ' + borrowedCount + ' books. You can only borrow a maximum of ' + maxBorrowLimit + ' books at a time.\n\nPlease return a book before borrowing a new one.');
-            closeBorrowModal();
-            return;
-        }
-        borrowBook(currentBookId);
-    }
-};
-
-function borrowBook(bookId) {
-    // Double-check the limit client-side
-    if (borrowedCount >= maxBorrowLimit) {
-        alert('⚠️ You have reached the maximum borrowing limit of ' + maxBorrowLimit + ' books.');
-        return;
-    }
-    
-    // Show loading state
-    document.getElementById('confirmBorrow').textContent = 'Processing...';
-    document.getElementById('confirmBorrow').disabled = true;
-    
-    // Create a form and submit it
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'borrow_book.php';
-    
-    const bookInput = document.createElement('input');
-    bookInput.type = 'hidden';
-    bookInput.name = 'book_id';
-    bookInput.value = bookId;
-    
-    form.appendChild(bookInput);
-    document.body.appendChild(form);
-    form.submit();
-}
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('borrowModal');
-    if (event.target === modal) {
-        closeBorrowModal();
-    }
-}
 </script>
+
 
 <?php include '../includes/footer.php'; ?>
 
