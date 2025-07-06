@@ -365,6 +365,33 @@ function getFilterDisplayText($sort_by) {
 </div>
 
 <script>
+let currentBookId = null;
+const borrowedCount = <?php echo $borrowed_count; ?>;
+const maxBorrowLimit = 2;
+
+// Filter functionality
+function toggleFilterDropdown() {
+    const dropdown = document.getElementById('filterDropdown');
+    dropdown.classList.toggle('show');
+}
+
+function applyFilter(sortBy) {
+    const url = new URL(window.location);
+    url.searchParams.set('sort_by', sortBy);
+    window.location.href = url.toString();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('filterDropdown');
+    const filterBtn = event.target.closest('.filter-btn');
+    
+    if (!filterBtn && !dropdown.contains(event.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+
+// FIXED showBorrowModal function with forced image constraints
 function showBorrowModal(bookId, title, author, category, publishedYear, imagePath, status) {
     console.log('showBorrowModal called with:', {
         bookId: bookId,
@@ -390,36 +417,232 @@ function showBorrowModal(bookId, title, author, category, publishedYear, imagePa
         statusElement.textContent = status || 'Available';
     }
     
-    // Handle the image - with better debugging
+    // FIXED: Handle the image with forced constraints
     const modalBookImage = document.getElementById('modalBookImage');
-    console.log('Modal image element found:', modalBookImage);
-    console.log('Image path received:', imagePath);
+    const modalImageContainer = document.querySelector('.modal-book-image');
     
-    if (modalBookImage) {
-        // Set the image source
-        modalBookImage.src = imagePath || '../uploads/book-images/default_book.jpg';
+    if (modalBookImage && modalImageContainer) {
+        console.log('Setting up modal image with forced constraints...');
+        
+        // Reset any inline styles that might interfere
+        modalBookImage.removeAttribute('style');
+        
+        // FORCE the container sizes immediately
+        modalImageContainer.style.width = '120px';
+        modalImageContainer.style.height = '180px';
+        modalImageContainer.style.overflow = 'hidden';
+        modalImageContainer.style.position = 'relative';
+        modalImageContainer.style.flexShrink = '0';
+        modalImageContainer.style.display = 'block';
+        modalImageContainer.style.boxSizing = 'border-box';
+        
+        // FORCE the image constraints before setting the source
+        modalBookImage.style.width = '120px';
+        modalBookImage.style.height = '180px';
+        modalBookImage.style.maxWidth = '120px';
+        modalBookImage.style.maxHeight = '180px';
+        modalBookImage.style.minWidth = '120px';
+        modalBookImage.style.minHeight = '180px';
+        modalBookImage.style.objectFit = 'cover';
+        modalBookImage.style.position = 'absolute';
+        modalBookImage.style.top = '0';
+        modalBookImage.style.left = '0';
+        modalBookImage.style.right = '0';
+        modalBookImage.style.bottom = '0';
+        modalBookImage.style.margin = '0';
+        modalBookImage.style.padding = '0';
+        modalBookImage.style.display = 'block';
+        modalBookImage.style.borderRadius = '6px';
+        modalBookImage.style.zIndex = '1';
+        modalBookImage.style.transform = 'none';
+        modalBookImage.style.boxSizing = 'border-box';
+        
+        // Set the image source with fallback
+        const imageToUse = imagePath && imagePath !== '../uploads/book-images/default_book.jpg' ? imagePath : '../uploads/book-images/default_book.jpg';
+        modalBookImage.src = imageToUse;
         modalBookImage.alt = title;
-        modalBookImage.style.display = 'image'; // Ensure the image is displayed
         
-        console.log('Image source set to:', modalBookImage.src);
+        console.log('Modal image configured with path:', imageToUse);
         
-        // Debug image loading
+        // Handle image load/error events with constraint re-enforcement
         modalBookImage.onload = function() {
-            console.log('✅ Image loaded successfully:', this.src);
+            console.log('✅ Modal image loaded successfully');
+            
+            // RE-ENFORCE constraints after image loads (critical!)
+            this.style.width = '120px';
+            this.style.height = '180px';
+            this.style.maxWidth = '120px';
+            this.style.maxHeight = '180px';
+            this.style.objectFit = 'cover';
+            this.style.position = 'absolute';
+            this.style.top = '0';
+            this.style.left = '0';
+            this.style.transform = 'none';
+            
+            // Show the image container when image loads
+            modalImageContainer.style.display = 'block';
+            
+            console.log('✅ Image constraints re-enforced after load');
         };
         
         modalBookImage.onerror = function() {
-            console.log('❌ Image failed to load:', imagePath);
-            console.log('🔄 Falling back to default image');
+            console.log('❌ Modal image failed to load, using default');
             this.src = '../uploads/book-images/default_book.jpg';
+            
+            // Apply constraints to fallback image too
+            this.style.width = '120px';
+            this.style.height = '180px';
+            this.style.maxWidth = '120px';
+            this.style.maxHeight = '180px';
+            this.style.objectFit = 'cover';
+            this.style.position = 'absolute';
+            this.style.top = '0';
+            this.style.left = '0';
         };
     } else {
-        console.error('❌ Modal image element not found!');
+        console.error('❌ Modal image elements not found!');
     }
     
-    // Show modal
-    document.getElementById('borrowModal').style.display = 'block';
+    // Show modal and prevent body scroll
+    const modal = document.getElementById('borrowModal');
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    
+    // FORCE modal layout constraints
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.style.maxWidth = '600px';
+        modalContent.style.overflow = 'hidden';
+        modalContent.style.boxSizing = 'border-box';
+    }
+    
+    // FORCE book info constraints
+    const modalBookInfo = modal.querySelector('.modal-book-info');
+    if (modalBookInfo) {
+        modalBookInfo.style.overflow = 'hidden';
+        modalBookInfo.style.width = '100%';
+        modalBookInfo.style.maxWidth = '100%';
+        modalBookInfo.style.boxSizing = 'border-box';
+    }
+    
+    // FORCE book details constraints
+    const modalBookDetails = modal.querySelector('.modal-book-details');
+    if (modalBookDetails) {
+        modalBookDetails.style.minWidth = '0';
+        modalBookDetails.style.maxWidth = 'calc(100% - 140px)';
+        modalBookDetails.style.overflow = 'hidden';
+        modalBookDetails.style.overflowWrap = 'break-word';
+        modalBookDetails.style.wordWrap = 'break-word';
+        modalBookDetails.style.boxSizing = 'border-box';
+    }
+    
+    console.log('Modal displayed with forced constraints');
 }
+
+function closeBorrowModal() {
+    document.getElementById('borrowModal').style.display = 'none';
+    currentBookId = null;
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
+    
+    console.log('Modal closed');
+}
+
+document.getElementById('confirmBorrow').onclick = function() {
+    if (currentBookId) {
+        // Check borrowing limit before proceeding
+        if (borrowedCount >= maxBorrowLimit) {
+            alert('⚠️ Borrowing Limit Reached!\n\nYou have already borrowed ' + borrowedCount + ' books. You can only borrow a maximum of ' + maxBorrowLimit + ' books at a time.\n\nPlease return a book before borrowing a new one.');
+            closeBorrowModal();
+            return;
+        }
+        borrowBook(currentBookId);
+    }
+};
+
+function borrowBook(bookId) {
+    // Double-check the limit client-side
+    if (borrowedCount >= maxBorrowLimit) {
+        alert('⚠️ You have reached the maximum borrowing limit of ' + maxBorrowLimit + ' books.');
+        return;
+    }
+    
+    // Show loading state
+    const confirmBtn = document.getElementById('confirmBorrow');
+    confirmBtn.textContent = 'Processing...';
+    confirmBtn.disabled = true;
+    
+    // Create a form and submit it
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'borrow_book.php';
+    
+    const bookInput = document.createElement('input');
+    bookInput.type = 'hidden';
+    bookInput.name = 'book_id';
+    bookInput.value = bookId;
+    
+    form.appendChild(bookInput);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('borrowModal');
+    if (event.target === modal) {
+        closeBorrowModal();
+    }
+}
+
+// Additional safety: Re-enforce constraints when modal becomes visible
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+            const modal = document.getElementById('borrowModal');
+            if (modal && modal.style.display === 'block') {
+                // Modal is now visible, double-check image constraints
+                const modalBookImage = document.getElementById('modalBookImage');
+                const modalImageContainer = document.querySelector('.modal-book-image');
+                
+                if (modalBookImage && modalImageContainer) {
+                    // Small delay to let any other scripts finish
+                    setTimeout(function() {
+                        // Re-enforce container constraints
+                        modalImageContainer.style.width = '120px';
+                        modalImageContainer.style.height = '180px';
+                        modalImageContainer.style.overflow = 'hidden';
+                        
+                        // Re-enforce image constraints
+                        modalBookImage.style.width = '120px';
+                        modalBookImage.style.height = '180px';
+                        modalBookImage.style.maxWidth = '120px';
+                        modalBookImage.style.maxHeight = '180px';
+                        modalBookImage.style.objectFit = 'cover';
+                        modalBookImage.style.position = 'absolute';
+                        modalBookImage.style.top = '0';
+                        modalBookImage.style.left = '0';
+                        
+                        console.log('🔒 Image constraints re-enforced by observer');
+                    }, 50);
+                }
+            }
+        }
+    });
+});
+
+// Start observing the modal for changes
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('borrowModal');
+    if (modal) {
+        observer.observe(modal, {
+            attributes: true,
+            attributeFilter: ['style']
+        });
+        console.log('📋 Modal observer initialized');
+    }
+});
 </script>
 
 
