@@ -85,7 +85,7 @@ switch ($sort_by) {
 
 // Get all books with search filters and sorting
 try {
-    $query = "SELECT book_id, title, author, category, published_year, status, book_image FROM books $where_clause $order_clause";
+    $query = "SELECT book_id, book_code, title, author, category, published_year, status, book_image FROM books $where_clause $order_clause";
     $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -304,6 +304,7 @@ function getFilterDisplayText($sort_by) {
                         <div class="book-details">
                             <div class="book-info">
                                 <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
+                                <div class="book-meta"><strong>Book Code:</strong> <?php echo htmlspecialchars($book['book_code'] ?? 'N/A'); ?></div>
                                 <div class="book-meta"><strong>Author:</strong> <?php echo htmlspecialchars($book['author'] ?? 'Unknown'); ?></div>
                                 <div class="book-meta"><strong>Category:</strong> <?php echo htmlspecialchars($book['category'] ?? 'General'); ?></div>
                                 <div class="book-meta"><strong>Published:</strong> <?php echo htmlspecialchars($book['published_year'] ?? 'N/A'); ?></div>
@@ -314,20 +315,21 @@ function getFilterDisplayText($sort_by) {
                                 </div>
                             </div>
                             <div class="button-container">
-    <?php if ($book['status'] === 'Available'): ?>
-        <button class="borrow-btn" onclick="showBorrowModal(
-            <?php echo $book['book_id']; ?>, 
-            '<?php echo addslashes($book['title']); ?>', 
-            '<?php echo addslashes($book['author'] ?? 'Unknown'); ?>', 
-            '<?php echo addslashes($book['category'] ?? 'General'); ?>',
-            '<?php echo addslashes($book['published_year'] ?? 'N/A'); ?>',
-            '<?php echo addslashes($book_image_path); ?>',
-            '<?php echo addslashes($book['status']); ?>'
-        )">Borrow Now</button>
-    <?php else: ?>
-        <button class="borrow-btn" disabled>Not Available</button>
-    <?php endif; ?>
-</div>
+                                <?php if ($book['status'] === 'Available'): ?>
+                                    <button class="borrow-btn" onclick="showBorrowModal(
+                                        <?php echo $book['book_id']; ?>, 
+                                        '<?php echo addslashes($book['title']); ?>', 
+                                        '<?php echo addslashes($book['author'] ?? 'Unknown'); ?>', 
+                                        '<?php echo addslashes($book['category'] ?? 'General'); ?>',
+                                        '<?php echo addslashes($book['published_year'] ?? 'N/A'); ?>',
+                                        '<?php echo addslashes($book_image_path); ?>',
+                                        '<?php echo addslashes($book['status']); ?>',
+                                        '<?php echo addslashes($book['book_code'] ?? 'N/A'); ?>'
+                                    )">Borrow Now</button>
+                                <?php else: ?>
+                                    <button class="borrow-btn" disabled>Not Available</button>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -347,6 +349,7 @@ function getFilterDisplayText($sort_by) {
             </div>
             <div class="modal-book-details">
                 <h3 id="modalBookTitle"></h3>
+                <p><strong>Book Code:</strong> <span id="modalBookCode"></span></p>
                 <p><strong>Author:</strong> <span id="modalBookAuthor"></span></p>
                 <p><strong>Category:</strong> <span id="modalBookCategory"></span></p>
                 <p><strong>Published:</strong> <span id="modalBookPublished"></span></p>
@@ -391,8 +394,8 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// FIXED showBorrowModal function with forced image constraints
-function showBorrowModal(bookId, title, author, category, publishedYear, imagePath, status) {
+// FIXED showBorrowModal function with forced image constraints and Book Code
+function showBorrowModal(bookId, title, author, category, publishedYear, imagePath, status, bookCode) {
     console.log('showBorrowModal called with:', {
         bookId: bookId,
         title: title, 
@@ -400,13 +403,15 @@ function showBorrowModal(bookId, title, author, category, publishedYear, imagePa
         category: category, 
         publishedYear: publishedYear, 
         imagePath: imagePath,
-        status: status
+        status: status,
+        bookCode: bookCode
     });
     
     currentBookId = bookId;
     
-    // Set ALL book details
+    // Set ALL book details including Book Code
     document.getElementById('modalBookTitle').textContent = title;
+    document.getElementById('modalBookCode').textContent = bookCode || 'N/A';
     document.getElementById('modalBookAuthor').textContent = author;
     document.getElementById('modalBookCategory').textContent = category;
     document.getElementById('modalBookPublished').textContent = publishedYear || 'N/A';
@@ -644,7 +649,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-
 
 <?php include '../includes/footer.php'; ?>
 
