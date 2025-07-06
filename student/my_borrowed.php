@@ -98,7 +98,7 @@ function getDaysRemaining($due_date) {
     <!-- Welcome Content -->
     <div class="welcome-content">
         <h2 class="sniglet-extrabold">My Borrowed Books</h2>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        <p>Here’s a summary of the books you've borrowed from The Cat-alog Library. Keep track of your due dates, manage your returns, and ensure a smooth borrowing experience. Thank you for being a responsible reader!</p>
     </div>
 </section>
 

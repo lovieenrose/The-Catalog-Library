@@ -217,7 +217,7 @@ function getFilterDisplayText($sort_by) {
     <!-- Welcome Content -->
     <div class="welcome-content">
         <h2 class="sniglet-extrabold">Browse Books</h2>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        <p>Here, you can explore a diverse selection of titles carefully curated to inform, inspire, and entertain. Take your time and enjoy discovering your next great read.</p>
     </div>
 </section>
 
