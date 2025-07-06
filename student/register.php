@@ -64,11 +64,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="../assets/css/register.css">
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
 </head>
-<body>
-
-<div class="banner">
-    <img src="../assets/images/banner1.png" alt="Banner" class="banner-bg">
-</div>
+<body>  
 
 <div class="login-container">
     <div class="logo-wrapper">

@@ -61,7 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
 <div class="banner">
-    <img src="../assets/images/banner1.png" alt="Banner" class="banner-bg">
+    <img src="../assets/images/banner.png" alt="Banner" class="banner-bg">
 </div>
 
 <div class="login-container">

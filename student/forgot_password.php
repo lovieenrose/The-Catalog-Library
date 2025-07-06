@@ -133,6 +133,28 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
     <link rel="stylesheet" href="../assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <style>
+        /* Override the login container positioning for forgot password */
+        .login-container {
+            width: 90%;
+            background-color: #fce6e0;
+            margin: 10vh auto 2rem auto; /* Changed from negative margin to positive */
+            padding: 2rem;
+            border-radius: 1.5rem;
+            max-width: 500px; /* Slightly wider for forgot password content */
+            border: 1px solid var(--black);
+            text-align: center;
+            box-shadow: 4px 4px var(--caramel);
+            position: relative;
+            z-index: 10;
+            margin-bottom: 5rem;
+        }
+
+        /* Adjust logo positioning */
+        .logo-wrapper {
+            margin-top: -50px; /* Less negative margin than login page */
+            margin-bottom: 1rem;
+        }
+
         .step-indicator {
             display: flex;
             justify-content: center;
@@ -170,6 +192,7 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             border-radius: 1rem;
             margin-bottom: 1rem;
             border: 1px solid #c3e6cb;
+            text-align: left;
         }
         
         .error-message {
@@ -179,6 +202,7 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             border-radius: 1rem;
             margin-bottom: 1rem;
             border: 1px solid #f5c6cb;
+            text-align: left;
         }
         
         .info-box {
@@ -188,14 +212,15 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             border-radius: 1rem;
             margin-bottom: 1rem;
             border: 1px solid #b6d7ff;
+            text-align: left;
         }
         
         .btn-back {
-            background-color: var(--caramel);
+            background-color: var(--blush);
             color: white;
             text-decoration: none;
             padding: 1rem 2rem;
-            border-radius: 1rem;
+            border-radius: 5rem;
             font-weight: 600;
             display: inline-block;
             margin-top: 1rem;
@@ -204,11 +229,21 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             font-family: 'Sniglet', sans-serif;
             cursor: pointer;
             text-align: center;
+            font-size: 1rem;
+            /* BLACK TEXT OUTLINE - matching other buttons */
+            text-shadow: 
+                -1px -1px 0 var(--black),
+                1px -1px 0 var(--black),
+                -1px 1px 0 var(--black),
+                1px 1px 0 var(--black);
+            box-shadow: 4px 4px var(--caramel);
+            border: 2px solid var(--black);
         }
         
         .btn-back:hover {
-            background-color: #a0622d;
-            transform: translateY(-2px);
+            background-color: var(--pinkish);
+            transform: translateY(-3px);
+            box-shadow: 6px 6px var(--caramel);
         }
         
         .user-info {
@@ -217,6 +252,54 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             border-radius: 1rem;
             margin-bottom: 1rem;
             border: 1px solid #dee2e6;
+            text-align: left;
+        }
+
+        /* Make sure login form buttons match the site style */
+        .login-form .btn {
+            padding: 1rem;
+            width: 100%;
+            border-radius: 5rem;
+            font-size: 1rem;
+            font-family: 'Sniglet', sans-serif;
+            background-color: var(--pinkish);
+            text-shadow: #000000 2px 3px 3px;
+            color: var(--white);
+            border: 2px solid var(--black);
+            box-shadow: 4px 4px var(--caramel);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        .login-form .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 6px 6px var(--caramel);
+        }
+
+        /* Input styling */
+        .login-form input {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 1rem;
+            border: 1px solid #888;
+            font-family: 'Sniglet', sans-serif;
+            font-size: 1rem;
+            background-color: var(--blush);
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .login-container {
+                margin: 5vh auto 2rem auto;
+                max-width: 95%;
+                padding: 1.5rem;
+            }
+            
+            .logo-wrapper {
+                margin-top: -30px;
+            }
         }
     </style>
 </head>
@@ -244,7 +327,7 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
         
         <div class="info-box">
             <strong>🔐 Step 1: Find Your Account</strong><br>
-            Enter your username or email address to get started.
+            Enter your Student Number to get started
         </div>
 
         <?php if ($error): ?>
@@ -252,12 +335,13 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
         <?php endif; ?>
 
         <form method="post" class="login-form">
-            <input type="text" name="identifier" placeholder="Username or Email Address" 
+            <input type="text" name="identifier" placeholder="Student Number" 
                    value="<?php echo isset($_POST['identifier']) ? htmlspecialchars($_POST['identifier']) : ''; ?>" required>
             
             <button type="submit" class="btn">Find My Account</button>
-            <a href="login.php" class="btn-back">← Back to Login</a>
         </form>
+        
+        <a href="login.php" class="btn-back">← Back to Login</a>
 
     <?php elseif ($step === 'verify'): ?>
         <!-- Step 2: Verify Identity -->
@@ -265,7 +349,7 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
         
         <div class="user-info">
             <strong>👤 Account Found:</strong><br>
-            Username: <?php echo htmlspecialchars($_SESSION['reset_username']); ?><br>
+            Student Number: <?php echo htmlspecialchars($_SESSION['reset_username']); ?><br>
             Name: <?php echo htmlspecialchars($_SESSION['reset_name']); ?>
         </div>
         
@@ -283,8 +367,9 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             <input type="text" name="user_first_name" placeholder="Confirm Your First Name" required>
             
             <button type="submit" class="btn">Verify Identity</button>
-            <a href="forgot_password.php" class="btn-back">← Start Over</a>
         </form>
+        
+        <a href="forgot_password.php" class="btn-back">← Start Over</a>
 
     <?php elseif ($step === 'reset'): ?>
         <!-- Step 3: Reset Password -->
@@ -309,8 +394,9 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
             <input type="password" name="confirm_password" placeholder="Confirm New Password" required>
             
             <button type="submit" class="btn">Update Password</button>
-            <a href="forgot_password.php" class="btn-back">← Start Over</a>
         </form>
+        
+        <a href="forgot_password.php" class="btn-back">← Start Over</a>
 
     <?php else: ?>
         <!-- Step 4: Success -->
