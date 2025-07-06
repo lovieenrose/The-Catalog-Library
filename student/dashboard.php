@@ -181,7 +181,8 @@ try {
     <!-- Welcome Content -->
     <div class="welcome-content">
         <h2 class="sniglet-extrabold">Welcome to the Dashboard, <?php echo htmlspecialchars($user_name); ?>!</h2>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        <p>We're thrilled to have you back. Whether you're here to borrow a book, check your records, or simply browse our growing collection, you're in the purr-fect place.
+        Let your next great read begin here. Happy reading!</p>
     </div>
 </section>
 
