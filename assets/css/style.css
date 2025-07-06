@@ -107,7 +107,7 @@ html, body {
     margin-bottom: 6rem;
 }
 
-/* Button */
+/* Button - UPDATED WITH BLACK TEXT OUTLINE */
 .btn {
     width: 350px;
     text-decoration: none;
@@ -115,7 +115,13 @@ html, body {
     padding: 2rem 5rem;
     background-color: var(--pinkish);
     color: var(--white);
-    text-shadow: #000000 2px 3px 3px;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black),
+        #000000 2px 3px 3px;
     border: 2px solid var(--black);
     border-radius: 5rem;
     font-weight: bold;
@@ -210,7 +216,7 @@ html, body {
     background-color: var(--blush);
 }
 
-/* Form Button */
+/* Form Button - UPDATED WITH BLACK TEXT OUTLINE */
 .login-form .btn {
     padding: 1rem;
     width: 100%;
@@ -218,7 +224,24 @@ html, body {
     font-size: 1rem;
     font-family: 'Sniglet', sans-serif;
     background-color: var(--pinkish);
-    text-shadow: #000000 2px 3px 3px;
+    color: var(--white);
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black),
+        #000000 2px 3px 3px;
+    border: 2px solid var(--black);
+    box-shadow: 4px 4px var(--caramel);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.login-form .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 6px 6px var(--caramel);
 }
 
 /* Forgot password link */
@@ -309,7 +332,7 @@ html, body {
     background-color: rgba(139, 148, 158, 0.2);
 }
 
-/* Logout Button */
+/* Logout Button - UPDATED WITH BLACK TEXT OUTLINE */
 .logout-btn {
     background-color: var(--blush);
     color: white;
@@ -320,6 +343,12 @@ html, body {
     font-weight: 600;
     font-size: 1rem;
     transition: background-color 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .logout-btn:hover {
@@ -512,13 +541,14 @@ html, body {
     font-weight: 600;
 }
 
-/* Buttons */
+/* Buttons - UPDATED WITH BLACK TEXT OUTLINE */
 .dashboard-box .btn {
     display: block;
     width: 100%;
     padding: 0.8rem 1.5rem;
     margin-top: 1rem;
     background-color: var(--blush);
+    color: var(--white);
     border: none;
     border-radius: 0.5rem;
     font-family: 'Sniglet', system-ui, sans-serif;
@@ -528,6 +558,12 @@ html, body {
     text-align: center;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    /* BLACK TEXT OUTLINE */
+    text-shadow: 
+        -1px -1px 0 var(--black),
+        1px -1px 0 var(--black),
+        -1px 1px 0 var(--black),
+        1px 1px 0 var(--black);
 }
 
 .dashboard-box .btn:hover {

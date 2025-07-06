@@ -102,7 +102,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         <button type="submit" class="btn">REGISTER</button>
         <a href="../index.php">
-        <button type="button" class="btn">BACK</button>
+            <button type="button" class="btn">BACK</button>
         </a>
     </form>
     
