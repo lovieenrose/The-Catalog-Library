@@ -12,20 +12,32 @@
     --white: #FFFFFF;
 }
 
-/* Banner Section with Background */
+/* Navigation Header - COMPLETELY SEPARATE FROM BANNER */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 100;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 0; /* No margin below nav */
+}
+
+/* Banner Section with Background - STARTS IMMEDIATELY BELOW NAV */
 .banner-section {
     background-color: var(--pinkish);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    min-height: 400px;
+    min-height: 300px;
     position: relative;
     display: flex;
     flex-direction: column;
     color: var(--black);
+    margin-top: 0; /* No margin above banner */
 }
 
-/* Banner Background Image */
+/* Banner Background Image - COVERS ENTIRE BANNER AREA */
 .banner-bg {
     position: absolute;
     top: 0;
@@ -34,18 +46,6 @@
     height: 100%;
     object-fit: cover;
     z-index: 1;
-}
-
-/* Navigation Header */
-.main-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(5px);
-    position: relative;
-    z-index: 10;
 }
 
 .logo-title {
@@ -131,7 +131,8 @@
     text-align: center;
     padding: 2rem;
     position: relative;
-    z-index: 5;
+    z-index: 10; /* Above banner image but below nav */
+    margin-top: 0; /* Remove any margin that might push content down */
 }
 
 .welcome-content h2 {
@@ -183,7 +184,7 @@
     padding: 0.2rem;
 }
 
-/* ENSURE FULL PAGE LAYOUT */
+/* ENSURE FULL PAGE LAYOUT - NO GAPS */
 html, body {
     height: 100%;
     margin: 0;
@@ -196,14 +197,16 @@ html, body {
     overflow-x: hidden;
 }
 
-/* PAGE WRAPPER FOR PROPER LAYOUT */
+/* PAGE WRAPPER FOR PROPER LAYOUT - NO GAPS */
 .page-wrapper {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    margin: 0;
+    padding: 0;
 }
 
-/* MAIN CONTENT AREA */
+/* MAIN CONTENT AREA - NO GAPS */
 .main-content {
     flex: 1;
     display: flex;
@@ -211,7 +214,8 @@ html, body {
     justify-content: center;
     align-items: center;
     padding: 1rem;
-    min-height: calc(100vh - 200px); /* Account for banner and footer */
+    min-height: calc(100vh - 200px);
+    margin: 0;
 }
 
 /* Dashboard Container - Equal Heights */
@@ -488,6 +492,12 @@ html, body {
         margin: 1rem auto;
         padding: 1.5rem;
     }
+    
+    /* Adjust banner image position for smaller screens */
+    .banner-bg {
+        top: 80px;
+        height: calc(100% - 80px);
+    }
 }
 
 @media (max-width: 768px) {
@@ -559,6 +569,12 @@ html, body {
         min-height: calc(100vh - 150px); /* Adjust for mobile */
         padding: 0.5rem;
     }
+    
+    /* Adjust banner for mobile navigation */
+    .banner-bg {
+        top: 140px; /* More space for stacked mobile nav */
+        height: calc(100% - 140px);
+    }
 }
 
 @media (max-width: 480px) {
@@ -578,6 +594,12 @@ html, body {
     
     .welcome-content h2 {
         font-size: 1.8rem;
+    }
+    
+    /* Further adjust for very small screens */
+    .banner-bg {
+        top: 160px;
+        height: calc(100% - 160px);
     }
 }
 

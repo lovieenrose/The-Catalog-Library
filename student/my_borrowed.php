@@ -76,29 +76,30 @@ function getDaysRemaining($due_date) {
 </head>
 <body>
 
-<!-- Banner Section with Navigation and Welcome -->
-<section class="borrowed-header">
-    <img src="../assets/images/library-banner.jpg" alt="Library Banner" class="banner-bg">
-    <!-- Navigation Overlay -->
-    <header class="main-header">
-        <div class="logo-title">
-            <img src="../assets/images/logo.png" alt="Logo" class="banner-logo-dashboard">
-            <h1 class="sniglet-extrabold">The Cat-alog Library</h1>
-        </div>
-        <nav class="main-nav">
-            <ul class="nav-menu">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="browse_books.php">Browse Books</a></li>
-                <li><a href="my_borrowed.php" class="active">My Borrowed Books</a></li>
-            </ul>
-        </nav>
-        <a href="logout.php" class="logout-btn">Log Out</a>
-    </header>
+<!-- Navigation Header - SEPARATE FROM BANNER -->
+<header class="main-header">
+    <div class="logo-title">
+        <img src="../assets/images/logo.png" alt="Logo" class="banner-logo-dashboard">
+        <h1 class="sniglet-extrabold">The Cat-alog Library</h1>
+    </div>
+    <nav class="main-nav">
+        <ul class="nav-menu">
+            <li><a href="dashboard.php">Dashboard</a></li>
+            <li><a href="browse_books.php">Browse Books</a></li>
+            <li><a href="my_borrowed.php" class="active">My Borrowed Books</a></li>
+        </ul>
+    </nav>
+    <a href="logout.php" class="logout-btn">Log Out</a>
+</header>
 
+<!-- Banner Section - ONLY WELCOME CONTENT -->
+<section class="banner-section">
+    <img src="../assets/images/banner-borrowed.png" alt="Library Banner" class="banner-bg">
+    
     <!-- Welcome Content -->
     <div class="welcome-content">
         <h2 class="sniglet-extrabold">My Borrowed Books</h2>
-        <p>Here’s a summary of the books you've borrowed from The Cat-alog Library. Keep track of your due dates, manage your returns, and ensure a smooth borrowing experience. Thank you for being a responsible reader!</p>
+        <p>Here's a summary of the books you've borrowed from The Cat-alog Library. Keep track of your due dates, manage your returns, and ensure a smooth borrowing experience. Thank you for being a responsible reader!</p>
     </div>
 </section>
 

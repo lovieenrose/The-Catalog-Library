@@ -149,7 +149,7 @@ try {
 
         .ads-image {
             width: 100%;        /* or a specific value like 300px */
-            max-width: 400px;   /* ensures it doesn’t grow too large */
+            max-width: 400px;   /* ensures it doesn't grow too large */
             height: auto;       /* maintains aspect ratio */
             display: block;     /* removes extra spacing below image */
             top margin: 10px auto;  /* centers the image horizontally */
@@ -159,25 +159,26 @@ try {
 </head>
 <body>
 
-<!-- Banner Section with Navigation and Welcome -->
-<section class="banner-section">
-    <img src="../assets/images/library-banner.jpg" alt="Library Banner" class="banner-bg">
-    <!-- Navigation Overlay -->
-    <header class="main-header">
-        <div class="logo-title">
-            <img src="../assets/images/logo.png" alt="Logo" class="banner-logo-dashboard">
-            <h1 class="sniglet-extrabold">The Cat-alog Library</h1>
-        </div>
-        <nav class="main-nav">
-            <ul class="nav-menu">
-                <li><a href="dashboard.php">Dashboard</a></li>
-                <li><a href="browse_books.php">Browse Books</a></li>
-                <li><a href="my_borrowed.php">My Borrowed Books</a></li>
-            </ul>
-        </nav>
-        <a href="logout.php" class="logout-btn">Log Out</a>
-    </header>
+<!-- Navigation Header - SEPARATE FROM BANNER -->
+<header class="main-header">
+    <div class="logo-title">
+        <img src="../assets/images/logo.png" alt="Logo" class="banner-logo-dashboard">
+        <h1 class="sniglet-extrabold">The Cat-alog Library</h1>
+    </div>
+    <nav class="main-nav">
+        <ul class="nav-menu">
+            <li><a href="dashboard.php">Dashboard</a></li>
+            <li><a href="browse_books.php">Browse Books</a></li>
+            <li><a href="my_borrowed.php">My Borrowed Books</a></li>
+        </ul>
+    </nav>
+    <a href="logout.php" class="logout-btn">Log Out</a>
+</header>
 
+<!-- Banner Section - ONLY WELCOME CONTENT -->
+<section class="banner-section">
+    <img src="../assets/images/banner-dashboard.png" alt="Library Banner" class="banner-bg">
+    
     <!-- Welcome Content -->
     <div class="welcome-content">
         <h2 class="sniglet-extrabold">Welcome to the Dashboard, <?php echo htmlspecialchars($user_name); ?>!</h2>
