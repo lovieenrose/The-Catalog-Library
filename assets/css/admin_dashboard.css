@@ -128,7 +128,7 @@ html, body {
 
 /* Special styling for Logout link */
 .sidebar-nav a[href*="logout"] {
-    background-color: #cf6154;
+    background-color: var(--pinkish);
     color: var(--white);
     border: 2px solid var(--black);
     margin-top: 1rem;
@@ -137,7 +137,7 @@ html, body {
 }
 
 .sidebar-nav a[href*="logout"]:hover {
-    background-color: #c0392b;
+    background-color: var(--blush);
     color: var(--white);
     transform: translateX(5px);
     box-shadow: 3px 3px 0 var(--black);
