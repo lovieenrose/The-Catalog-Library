@@ -38,7 +38,7 @@ if (isset($_POST['archive_book']) && isset($_POST['book_id'])) {
             
             if ($book) {
                 // Archive the book
-                $archiveStmt = $conn->prepare("UPDATE books SET status = 'archived' WHERE book_id = ?");
+                $archiveStmt = $conn->prepare("UPDATE books SET status = 'Archived' WHERE book_id = ?");
                 if ($archiveStmt->execute([$book_id])) {
                     $message = "Book '{$book['title']}' archived successfully!";
                     $message_type = "success";
@@ -135,7 +135,7 @@ $params = [];
 
 switch ($view) {
     case 'archived':
-        $where_conditions[] = "status = 'archived'";
+        $where_conditions[] = "status = 'Archived'";
         break;
     case 'available':
         $where_conditions[] = "status IN ('Available', 'Borrowed')";
@@ -180,7 +180,7 @@ try {
     $statsQuery = "
         SELECT 
             COUNT(CASE WHEN status IN ('Available', 'Borrowed') THEN 1 END) as active_books,
-            COUNT(CASE WHEN status = 'archived' THEN 1 END) as archived_books,
+            COUNT(CASE WHEN status = 'Archived' THEN 1 END) as archived_books,
             COUNT(CASE WHEN status = 'Available' THEN 1 END) as available_books,
             COUNT(CASE WHEN status = 'Borrowed' THEN 1 END) as borrowed_books
         FROM books
@@ -204,7 +204,7 @@ function getStatusBadgeClass($status) {
     switch($status) {
         case 'Available': return 'status-available';
         case 'Borrowed': return 'status-borrowed';
-        case 'archived': return 'status-archived';
+        case 'Archived': return 'status-archived';
         default: return 'status-available';
     }
 }
@@ -391,7 +391,7 @@ function buildUrl($newParams = []) {
                 <?php else: ?>
                     <div class="books-grid">
                         <?php foreach ($books as $book): ?>
-                            <div class="book-card <?php echo $book['status'] === 'archived' ? 'archived' : ''; ?>">
+                            <div class="book-card <?php echo $book['status'] === 'Archived' ? 'archived' : ''; ?>">
                                 <div class="book-image">
                                     <?php if (!empty($book['book_image'])): ?>
                                         <img src="../uploads/book-images/<?php echo htmlspecialchars($book['book_image']); ?>" 
@@ -417,7 +417,7 @@ function buildUrl($newParams = []) {
                                 </div>
                                 
                                 <div class="book-actions">
-                                    <?php if ($book['status'] === 'archived'): ?>
+                                    <?php if ($book['status'] === 'Archived'): ?>
                                         <!-- Archived book actions -->
                                         <form method="POST" style="display: inline;" 
                                               onsubmit="return confirm('Restore this book to active status?');">
