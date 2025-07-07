@@ -126,6 +126,23 @@ html, body {
     box-shadow: 2px 2px 0 var(--caramel);
 }
 
+/* Special styling for Logout link */
+.sidebar-nav a[href*="logout"] {
+    background-color: #cf6154;
+    color: var(--white);
+    border: 2px solid var(--black);
+    margin-top: 1rem;
+    font-weight: 700;
+    text-shadow: 1px 1px 2px var(--black);
+}
+
+.sidebar-nav a[href*="logout"]:hover {
+    background-color: #c0392b;
+    color: var(--white);
+    transform: translateX(5px);
+    box-shadow: 3px 3px 0 var(--black);
+}
+
 /* Main Content Area */
 .admin-main {
     flex: 1;

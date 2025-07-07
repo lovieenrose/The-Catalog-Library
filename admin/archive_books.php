@@ -231,6 +231,15 @@ function buildUrl($newParams = []) {
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
     <link rel="stylesheet" href="../assets/css/admin_archive_books.css">
+    <style>
+        .book-code {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+    </style>
 
 </head>
 <body>
@@ -403,6 +412,7 @@ function buildUrl($newParams = []) {
                                 </div>
                                 
                                 <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
+                                <div class="book-code">ID: <?php echo htmlspecialchars($book['book_code'] ?? 'N/A'); ?></div>
                                 <div class="book-author">by <?php echo htmlspecialchars($book['author'] ?? 'Unknown Author'); ?></div>
                                 
                                 <div class="book-meta">
