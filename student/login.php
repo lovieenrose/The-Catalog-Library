@@ -121,6 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             padding: 0 !important;
         }
     </style>
+    <?php include '../includes/favicon.php'; ?>
 </head>
 <body>
 

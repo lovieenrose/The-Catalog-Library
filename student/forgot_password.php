@@ -132,6 +132,7 @@ if (($step === 'verify' || $step === 'reset') && !isset($_SESSION['reset_user_id
     </title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
+    <?php include '../includes/favicon.php'; ?>
     <style>
         /* Override the login container positioning for forgot password */
         .login-container {

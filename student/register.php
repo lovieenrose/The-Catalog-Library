@@ -63,6 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Student Registration - The Cat-alog Library</title>
     <link rel="stylesheet" href="../assets/css/register.css">
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
+    <?php include '../includes/favicon.php'; ?>
 </head>
 <body>  
 

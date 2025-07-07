@@ -266,6 +266,7 @@ function daysDifference($date1, $date2 = null) {
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
     <link rel="stylesheet" href="../assets/css/admin_manage_borrowed.css">
+    <?php include '../includes/favicon.php'; ?>
 
 </head>
 <body>

@@ -145,6 +145,7 @@ function buildUrl($newParams = []) {
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
     <link rel="stylesheet" href="../assets/css/admin_manage_books.css">
+    <?php include '../includes/favicon.php'; ?>
     <style>
         .book-code {
             font-size: 0.8rem;

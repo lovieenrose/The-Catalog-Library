@@ -119,6 +119,7 @@ function getStatusBadgeClass($status) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
+    <?php include '../includes/favicon.php'; ?>
 </head>
 <body>
 <div class="admin-container">
