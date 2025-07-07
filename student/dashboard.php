@@ -264,7 +264,7 @@ try {
     <h3>Student Profile</h3>
     <div class="student-profile">
         <img src="../assets/images/student-icon.jpg" alt="Student Icon" class="student-avatar">
-        <p class="sniglet-regular"><?php echo htmlspecialchars($user_name); ?></p>
+        <p class="sniglet-regular" style="font-weight: normal;"><?php echo htmlspecialchars($user_name); ?></p>
     </div>
 
     <h3>My Borrowed Books</h3>
