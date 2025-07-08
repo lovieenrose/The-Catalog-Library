@@ -313,7 +313,7 @@ function buildUrl($newParams = []) {
                     <?php echo htmlspecialchars($error_message); ?>
                 </div>
             <?php endif; ?>
-
+                
             <!-- Toggle Registration Section -->
             <div class="toggle-section">
                 <button type="button" class="toggle-btn" onclick="toggleRegistration()">
@@ -364,7 +364,7 @@ function buildUrl($newParams = []) {
                         <input type="password" id="confirm_password" name="confirm_password" required 
                                placeholder="Repeat password">
                     </div>
-                    
+
                     <div class="form-group" style="display: flex; align-items: end;">
                         <button type="submit" name="register_student" class="action-btn" style="width: 100%;">
                             👤 Register Student

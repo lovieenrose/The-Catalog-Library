@@ -1,3 +1,4 @@
+/* Book ID Preview and Explanation Styles */
 .book-id-preview {
     background: #e7f3ff;
     border: 2px solid #0066cc;
@@ -36,6 +37,7 @@
 .book-id-explanation h5 {
     margin: 0 0 0.5rem 0;
     color: #495057;
+    font-family: 'Sniglet', cursive;
 }
 
 .book-id-explanation ul {
@@ -45,15 +47,22 @@
 
 .book-id-explanation li {
     margin-bottom: 0.25rem;
+    line-height: 1.4;
 }
 
-/* Rest of your existing styles... */
+.book-id-explanation p {
+    margin: 0.5rem 0 0 0;
+    font-style: italic;
+    color: #666;
+}
+
+/* Form Container Styles */
 .form-container {
     background: white;
     border-radius: 12px;
     padding: 2rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
 }
 
@@ -77,6 +86,7 @@
     margin-bottom: 0.5rem;
     font-weight: 600;
     color: #2c3e50;
+    font-family: 'Sniglet', cursive;
 }
 
 .form-group input,
@@ -87,15 +97,26 @@
     border-radius: 8px;
     font-size: 1rem;
     transition: border-color 0.3s ease;
+    font-family: inherit;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: var(--orange);
+    border-color: var(--caramel);
+    box-shadow: 0 0 0 3px rgba(185, 135, 79, 0.1);
 }
 
+/* Form hint styling */
+.form-hint {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* File Upload Area */
 .file-upload-area {
     border: 2px dashed #e0e0e0;
     border-radius: 8px;
@@ -103,15 +124,17 @@
     text-align: center;
     transition: border-color 0.3s ease;
     cursor: pointer;
+    background: #fafafa;
 }
 
 .file-upload-area:hover {
-    border-color: var(--orange);
+    border-color: var(--caramel);
+    background: var(--white);
 }
 
 .file-upload-area.dragover {
-    border-color: var(--orange);
-    background-color: #fff5f0;
+    border-color: var(--caramel);
+    background-color: rgba(232, 183, 161, 0.1);
 }
 
 .file-input {
@@ -125,13 +148,15 @@
 }
 
 .upload-text {
-    color: #666;
+    color: #333;
     margin-bottom: 0.5rem;
+    font-weight: 600;
 }
 
 .upload-hint {
     font-size: 0.9rem;
     color: #999;
+    margin-bottom: 0.25rem;
 }
 
 .preview-container {
@@ -144,8 +169,41 @@
     max-height: 300px;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border: 2px solid #ddd;
 }
 
+/* Category Input Group */
+.category-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.category-select {
+    flex: 1;
+}
+
+.category-input {
+    flex: 1;
+    display: none;
+}
+
+.category-toggle {
+    background: var(--caramel);
+    color: var(--white);
+    border: none;
+    padding: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.3s ease;
+}
+
+.category-toggle:hover {
+    background: var(--pinkish);
+}
+
+/* Form Actions */
 .form-actions {
     display: flex;
     gap: 1rem;
@@ -165,31 +223,41 @@
     font-size: 1rem;
     cursor: pointer;
     transition: background 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    font-family: 'Sniglet', cursive;
 }
 
 .btn-secondary:hover {
     background: #5a6268;
+    transform: translateY(-1px);
 }
 
 .btn-primary {
-    background: var(--orange);
-    color: white;
+    background: var(--caramel);
+    color: var(--white);
     border: none;
     padding: 0.75rem 2rem;
     border-radius: 8px;
     font-size: 1rem;
     cursor: pointer;
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
+    font-family: 'Sniglet', cursive;
+    font-weight: 600;
 }
 
 .btn-primary:hover {
-    background: #d35400;
+    background: var(--pinkish);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(185, 135, 79, 0.3);
 }
 
+/* Message Styles */
 .message {
     padding: 1rem;
     border-radius: 8px;
     margin-bottom: 1.5rem;
+    font-family: 'Sniglet', cursive;
 }
 
 .message.success {
@@ -205,34 +273,26 @@
 }
 
 .error-list {
-    margin: 0;
+    margin: 0.5rem 0 0 0;
     padding-left: 1.5rem;
 }
 
-.category-input-group {
-    display: flex;
-    gap: 0.5rem;
+.error-list li {
+    margin-bottom: 0.25rem;
 }
 
-.category-select {
-    flex: 1;
+/* Enhanced message styling for book IDs */
+.message.success code {
+    background: rgba(232, 183, 161, 0.2);
+    color: var(--caramel);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    border: 1px solid var(--blush);
 }
 
-.category-input {
-    flex: 1;
-    display: none;
-}
-
-.category-toggle {
-    background: var(--caramel);
-    color: white;
-    border: none;
-    padding: 0.75rem;
-    border-radius: 8px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
+/* Sidebar Logo */
 .banner-logo-dashboard {
     width: 7rem;
     height: 7rem;
@@ -242,12 +302,132 @@
     padding: 0.5rem;
 }
 
+/* Active nav link styling */
+.sidebar-nav a.active {
+    background: var(--blush);
+    color: var(--black);
+    font-weight: 600;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
     .form-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
     }
 
     .form-actions {
         flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-container {
+        padding: 1rem;
+        margin: 0 1rem;
+    }
+    
+    .category-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .upload-icon {
+        font-size: 2rem;
+    }
+    
+    .file-upload-area {
+        padding: 1.5rem;
+    }
+    
+    .book-id-explanation {
+        font-size: 0.8rem;
+        padding: 0.8rem;
+    }
+    
+    .book-id-explanation ul {
+        padding-left: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-container {
+        padding: 0.8rem;
+        margin: 0 0.5rem;
+    }
+    
+    .form-grid {
+        gap: 0.8rem;
+    }
+    
+    .form-group input,
+    .form-group select {
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.9rem;
+    }
+    
+    .upload-text {
+        font-size: 0.9rem;
+    }
+    
+    .upload-hint {
+        font-size: 0.8rem;
+    }
+    
+    .preview-image {
+        max-width: 150px;
+        max-height: 200px;
+    }
+}
+
+/* Loading state for form submission */
+.btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary:disabled:hover {
+    background: #ccc;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Focus indicators for better accessibility */
+.form-group input:focus,
+.form-group select:focus {
+    outline: 2px solid var(--caramel);
+    outline-offset: 2px;
+}
+
+/* Enhanced file upload styling */
+.file-upload-area:focus-within {
+    border-color: var(--caramel);
+    background: rgba(232, 183, 161, 0.1);
+}
+
+/* Category input animation */
+.category-input {
+    transition: all 0.3s ease;
+}
+
+.category-input.show {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

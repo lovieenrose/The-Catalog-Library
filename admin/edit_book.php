@@ -17,25 +17,41 @@ $message = '';
 $message_type = '';
 $errors = [];
 $book = null;
+$book_copies = [];
 
-// Get book ID from URL
-$book_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+// Get book ID from URL (now title_id)
+$title_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-if ($book_id <= 0) {
+if ($title_id <= 0) {
     header('Location: manage_books.php?error=Invalid book ID');
     exit();
 }
 
-// Fetch book data
+// Fetch book data (updated for new structure)
 try {
-    $stmt = $conn->prepare("SELECT * FROM books WHERE book_id = ?");
-    $stmt->execute([$book_id]);
+    $stmt = $conn->prepare("SELECT * FROM book_titles WHERE title_id = ?");
+    $stmt->execute([$title_id]);
     $book = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$book) {
         header('Location: manage_books.php?error=Book not found');
         exit();
     }
+    
+    // Get all copies of this book
+    $copiesStmt = $conn->prepare("
+        SELECT bc.*, 
+               CASE WHEN bb.copy_id IS NOT NULL THEN 1 ELSE 0 END as is_borrowed,
+               CONCAT(u.first_name, ' ', u.last_name) as borrowed_by
+        FROM book_copies bc
+        LEFT JOIN borrowed_books bb ON bc.copy_id = bb.copy_id AND bb.status IN ('borrowed', 'overdue', 'renewed')
+        LEFT JOIN users u ON bb.user_id = u.user_id
+        WHERE bc.title_id = ?
+        ORDER BY bc.copy_number
+    ");
+    $copiesStmt->execute([$title_id]);
+    $book_copies = $copiesStmt->fetchAll(PDO::FETCH_ASSOC);
+    
 } catch (PDOException $e) {
     header('Location: manage_books.php?error=Database error');
     exit();
@@ -48,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $author = trim($_POST['author'] ?? '');
     $category = trim($_POST['category'] ?? '');
     $published_year = trim($_POST['published_year'] ?? '');
+    $published_month = trim($_POST['published_month'] ?? '');
     $status = $_POST['status'] ?? 'Available';
     
     // Validation
@@ -76,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (isset($_FILES['book_image']) && $_FILES['book_image']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../uploads/book_images/';
+        $upload_dir = '../uploads/book-images/';
         
         // Create directory if it doesn't exist
         if (!file_exists($upload_dir)) {
@@ -113,16 +130,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($remove_image && $book['book_image']) {
         // Remove old image file
-        $upload_dir = '../uploads/book_images/';
+        $upload_dir = '../uploads/book-images/';
         if (file_exists($upload_dir . $book['book_image'])) {
             unlink($upload_dir . $book['book_image']);
         }
     }
     
-    // If no errors, update database
+    // If no errors, update database (updated for new structure)
     if (empty($errors)) {
         try {
-            $sql = "UPDATE books SET title = ?, author = ?, category = ?, published_year = ?, book_image = ?, status = ? WHERE book_id = ?";
+            // Start transaction
+            $conn->beginTransaction();
+            
+            // Update book_titles table
+            $sql = "UPDATE book_titles SET title = ?, author = ?, category = ?, published_year = ?, published_month = ?, book_image = ?, status = ? WHERE title_id = ?";
             
             $stmt = $conn->prepare($sql);
             $result = $stmt->execute([
@@ -130,24 +151,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $author,
                 $category,
                 $published_year ?: null,
+                $published_month ?: null,
                 $book_image,
                 $status,
-                $book_id
+                $title_id
             ]);
             
             if ($result) {
+                // Update available_copies count based on current copy statuses
+                $updateCopiesStmt = $conn->prepare("
+                    UPDATE book_titles 
+                    SET available_copies = (
+                        SELECT COUNT(*) 
+                        FROM book_copies 
+                        WHERE title_id = ? AND status = 'Available'
+                    )
+                    WHERE title_id = ?
+                ");
+                $updateCopiesStmt->execute([$title_id, $title_id]);
+                
+                $conn->commit();
+                
                 $message = "Book updated successfully!";
                 $message_type = "success";
                 
                 // Refresh book data
-                $stmt = $conn->prepare("SELECT * FROM books WHERE book_id = ?");
-                $stmt->execute([$book_id]);
+                $stmt = $conn->prepare("SELECT * FROM book_titles WHERE title_id = ?");
+                $stmt->execute([$title_id]);
                 $book = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Refresh copies data
+                $copiesStmt = $conn->prepare("
+                    SELECT bc.*, 
+                           CASE WHEN bb.copy_id IS NOT NULL THEN 1 ELSE 0 END as is_borrowed,
+                           CONCAT(u.first_name, ' ', u.last_name) as borrowed_by
+                    FROM book_copies bc
+                    LEFT JOIN borrowed_books bb ON bc.copy_id = bb.copy_id AND bb.status IN ('borrowed', 'overdue', 'renewed')
+                    LEFT JOIN users u ON bb.user_id = u.user_id
+                    WHERE bc.title_id = ?
+                    ORDER BY bc.copy_number
+                ");
+                $copiesStmt->execute([$title_id]);
+                $book_copies = $copiesStmt->fetchAll(PDO::FETCH_ASSOC);
             } else {
+                $conn->rollBack();
                 $errors[] = "Failed to update book in database.";
             }
             
         } catch (PDOException $e) {
+            $conn->rollBack();
             $errors[] = "Database error: " . $e->getMessage();
         }
     }
@@ -159,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get existing categories for dropdown
 try {
-    $categoryStmt = $conn->prepare("SELECT DISTINCT category FROM books WHERE category IS NOT NULL AND category != '' ORDER BY category");
+    $categoryStmt = $conn->prepare("SELECT DISTINCT category FROM book_titles WHERE category IS NOT NULL AND category != '' ORDER BY category");
     $categoryStmt->execute();
     $existing_categories = $categoryStmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (PDOException $e) {
@@ -177,8 +229,41 @@ try {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/admin_dashboard.css">
-    <link rel="stylesheet" href="../assets/css/admin_edit_book.css">
+    <link rel="stylesheet" href="../assets/css/admin_add_book.css">
     <?php include '../includes/favicon.php'; ?>
+    <style>
+        .current-image-container {
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .current-image {
+            max-width: 200px;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 2px solid #ddd;
+        }
+        
+        .checkbox-group {
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        
+        .checkbox-group label {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
 
 </head>
 <body>
@@ -193,7 +278,7 @@ try {
             <nav>
                 <ul class="sidebar-nav">
                     <li><a href="dashboard.php">Dashboard</a></li>
-                    <li><a href="manage_books.php">Manage Books</a></li>
+                    <li><a href="manage_books.php" class="active">Manage Books</a></li>
                     <li><a href="manage_borrowed.php">Borrowed Books</a></li>
                     <li><a href="manage_students.php">Students</a></li>
                     <li><a href="archive_books.php">Archive</a></li>
@@ -233,6 +318,27 @@ try {
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
+
+            <!-- Book Copies Info Section -->
+            <div class="book-id-explanation">
+                <h5>📖 Current Book Copies (<?php echo count($book_copies); ?> total, <?php echo $book['available_copies']; ?> available)</h5>
+                <?php if (!empty($book_copies)): ?>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 1rem 0;">
+                        <?php foreach ($book_copies as $copy): ?>
+                            <div style="background: <?php echo $copy['is_borrowed'] ? '#ffe6e6' : '#e8f5e9'; ?>; padding: 0.8rem; border-radius: 0.5rem; border: 1px solid <?php echo $copy['is_borrowed'] ? '#f5c6cb' : '#c3e6cb'; ?>;">
+                                <strong>Copy #<?php echo $copy['copy_number']; ?>:</strong> <?php echo htmlspecialchars($copy['book_id']); ?><br>
+                                <small>Status: <?php echo $copy['status']; ?> | Condition: <?php echo $copy['condition_status']; ?>
+                                <?php if ($copy['is_borrowed']): ?>
+                                    <br><span style="color: #d32f2f; font-weight: bold;">⚠️ Currently Borrowed by <?php echo htmlspecialchars($copy['borrowed_by']); ?></span>
+                                <?php endif; ?>
+                                </small>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <p style="color: #d32f2f;">⚠️ No copies found for this book.</p>
+                <?php endif; ?>
+            </div>
 
             <!-- Form Container -->
             <div class="form-container">
@@ -282,13 +388,34 @@ try {
                                    placeholder="e.g., <?php echo date('Y'); ?>">
                         </div>
 
+                        <!-- Published Month -->
+                        <div class="form-group">
+                            <label for="published_month">Published Month</label>
+                            <select id="published_month" name="published_month">
+                                <option value="">Select month</option>
+                                <option value="January" <?php echo ($book['published_month'] === 'January') ? 'selected' : ''; ?>>January</option>
+                                <option value="February" <?php echo ($book['published_month'] === 'February') ? 'selected' : ''; ?>>February</option>
+                                <option value="March" <?php echo ($book['published_month'] === 'March') ? 'selected' : ''; ?>>March</option>
+                                <option value="April" <?php echo ($book['published_month'] === 'April') ? 'selected' : ''; ?>>April</option>
+                                <option value="May" <?php echo ($book['published_month'] === 'May') ? 'selected' : ''; ?>>May</option>
+                                <option value="June" <?php echo ($book['published_month'] === 'June') ? 'selected' : ''; ?>>June</option>
+                                <option value="July" <?php echo ($book['published_month'] === 'July') ? 'selected' : ''; ?>>July</option>
+                                <option value="August" <?php echo ($book['published_month'] === 'August') ? 'selected' : ''; ?>>August</option>
+                                <option value="September" <?php echo ($book['published_month'] === 'September') ? 'selected' : ''; ?>>September</option>
+                                <option value="October" <?php echo ($book['published_month'] === 'October') ? 'selected' : ''; ?>>October</option>
+                                <option value="November" <?php echo ($book['published_month'] === 'November') ? 'selected' : ''; ?>>November</option>
+                                <option value="December" <?php echo ($book['published_month'] === 'December') ? 'selected' : ''; ?>>December</option>
+                            </select>
+                        </div>
+
                         <!-- Status -->
                         <div class="form-group">
-                            <label for="status">Status</label>
+                            <label for="status">Overall Status</label>
                             <select id="status" name="status">
                                 <option value="Available" <?php echo ($book['status'] === 'Available') ? 'selected' : ''; ?>>Available</option>
-                                <option value="Borrowed" <?php echo ($book['status'] === 'Borrowed') ? 'selected' : ''; ?>>Borrowed</option>
+                                <option value="Archived" <?php echo ($book['status'] === 'Archived') ? 'selected' : ''; ?>>Archived</option>
                             </select>
+                            <small class="form-hint">Individual copy statuses are managed automatically</small>
                         </div>
 
                         <!-- Book Image Upload -->

@@ -9,7 +9,7 @@ $user_name = $_SESSION['user_name'] ?? $_SESSION['full_name'] ?? $_SESSION['user
 // If we have a user_id and no full name, try to get it from database
 if ($user_id && (!isset($_SESSION['user_name']) || empty($_SESSION['user_name']))) {
     try {
-        // Check if users table exists and has the expected columns
+        // Use the new 'users' table structure
         $stmt = $conn->prepare("SELECT first_name, last_name FROM users WHERE user_id = ? LIMIT 1");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch();
@@ -18,20 +18,7 @@ if ($user_id && (!isset($_SESSION['user_name']) || empty($_SESSION['user_name'])
             $_SESSION['user_name'] = $user_name;
         }
     } catch (PDOException $e) {
-        // Table might not exist or have different structure
-        // Try alternative table/column names
-        try {
-            $stmt = $conn->prepare("SELECT name FROM students WHERE id = ? LIMIT 1");
-            $stmt->execute([$user_id]);
-            $user = $stmt->fetch();
-            if ($user) {
-                $user_name = $user['name'];
-                $_SESSION['user_name'] = $user_name;
-            }
-        } catch (PDOException $e2) {
-            // If both attempts fail, just use session data or fallback
-            error_log("Database error: " . $e2->getMessage());
-        }
+        error_log("Database error: " . $e->getMessage());
     }
 }
 
@@ -39,14 +26,18 @@ if ($user_id && (!isset($_SESSION['user_name']) || empty($_SESSION['user_name'])
 $borrowed_books = [];
 if ($user_id) {
     try {
+        // Updated query to work with new database structure
         $borrowed_query = "
             SELECT 
-                b.title,
+                bt.title,
                 bb.due_date,
                 bb.status,
-                bb.borrow_date
+                bb.borrow_date,
+                bc.book_id,
+                bc.copy_number
             FROM borrowed_books bb
-            JOIN books b ON bb.book_id = b.book_id
+            JOIN book_copies bc ON bb.copy_id = bc.copy_id
+            JOIN book_titles bt ON bb.title_id = bt.title_id
             WHERE bb.user_id = ? AND bb.status IN ('borrowed', 'overdue')
             ORDER BY bb.due_date ASC
             LIMIT 2
@@ -56,7 +47,6 @@ if ($user_id) {
         $stmt->execute([$user_id]);
         $borrowed_books = $stmt->fetchAll();
     } catch (PDOException $e) {
-        // Handle case where tables don't exist or have different structure
         error_log("Error fetching borrowed books: " . $e->getMessage());
         $borrowed_books = [];
     }
@@ -74,20 +64,20 @@ function getStatusDisplay($due_date, $status) {
     }
 }
 
-// Get available categories for the dropdown
+// Get available categories for the dropdown (updated for new structure)
 $categories = [];
 try {
-    $cat_stmt = $conn->prepare("SELECT DISTINCT category FROM books WHERE category IS NOT NULL AND category != '' ORDER BY category ASC");
+    $cat_stmt = $conn->prepare("SELECT DISTINCT category FROM book_titles WHERE category IS NOT NULL AND category != '' ORDER BY category ASC");
     $cat_stmt->execute();
     $categories = $cat_stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (PDOException $e) {
     error_log("Error fetching categories: " . $e->getMessage());
 }
 
-// Get year range for published years
+// Get year range for published years (updated for new structure)
 $year_range = [];
 try {
-    $year_stmt = $conn->prepare("SELECT MIN(published_year) as min_year, MAX(published_year) as max_year FROM books WHERE published_year IS NOT NULL");
+    $year_stmt = $conn->prepare("SELECT MIN(published_year) as min_year, MAX(published_year) as max_year FROM book_titles WHERE published_year IS NOT NULL");
     $year_stmt->execute();
     $year_data = $year_stmt->fetch();
     if ($year_data && $year_data['min_year'] && $year_data['max_year']) {
@@ -95,6 +85,23 @@ try {
     }
 } catch (PDOException $e) {
     error_log("Error fetching year range: " . $e->getMessage());
+}
+
+// Get sample books for the catalog display
+$fiction_books = [];
+$nonfiction_books = [];
+try {
+    // Get fiction books
+    $fiction_stmt = $conn->prepare("SELECT book_image FROM book_titles WHERE category = 'Fiction' AND book_image IS NOT NULL LIMIT 3");
+    $fiction_stmt->execute();
+    $fiction_books = $fiction_stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Get non-fiction books
+    $nonfiction_stmt = $conn->prepare("SELECT book_image FROM book_titles WHERE category = 'Non-Fiction' AND book_image IS NOT NULL LIMIT 3");
+    $nonfiction_stmt->execute();
+    $nonfiction_books = $nonfiction_stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    error_log("Error fetching sample books: " . $e->getMessage());
 }
 ?>
 
@@ -196,15 +203,29 @@ try {
     <div class="book-catalog">
         <h4>Fiction Books</h4>
         <div class="book-row">
-            <img src="../uploads/book-images/fic1.png" alt="Fiction Book">
-            <img src="../uploads/book-images/fic2.png" alt="Fiction Book">
-            <img src="../uploads/book-images/fic3.png" alt="Fiction Book">
+            <?php if (!empty($fiction_books)): ?>
+                <?php foreach ($fiction_books as $image): ?>
+                    <img src="../uploads/book-images/<?php echo htmlspecialchars($image); ?>" alt="Fiction Book">
+                <?php endforeach; ?>
+            <?php else: ?>
+                <!-- Fallback images if no books found -->
+                <img src="../uploads/book-images/fic1.png" alt="Fiction Book">
+                <img src="../uploads/book-images/fic2.png" alt="Fiction Book">
+                <img src="../uploads/book-images/fic3.png" alt="Fiction Book">
+            <?php endif; ?>
         </div>
         <h4>Non-Fiction Books</h4>
         <div class="book-row">
-            <img src="../uploads/book-images/nonfic1.png" alt="Non-Fiction Book">
-            <img src="../uploads/book-images/nonfic2.png" alt="Non-Fiction Book">
-            <img src="../uploads/book-images/nonfic3.png" alt="Non-Fiction Book">
+            <?php if (!empty($nonfiction_books)): ?>
+                <?php foreach ($nonfiction_books as $image): ?>
+                    <img src="../uploads/book-images/<?php echo htmlspecialchars($image); ?>" alt="Non-Fiction Book">
+                <?php endforeach; ?>
+            <?php else: ?>
+                <!-- Fallback images if no books found -->
+                <img src="../uploads/book-images/nonfic1.png" alt="Non-Fiction Book">
+                <img src="../uploads/book-images/nonfic2.png" alt="Non-Fiction Book">
+                <img src="../uploads/book-images/nonfic3.png" alt="Non-Fiction Book">
+            <?php endif; ?>
         </div>
         <div class="more-books-text">
             More books available in Browse Books!
@@ -234,6 +255,8 @@ try {
                         <option value="Fiction">Fiction</option>
                         <option value="Non-Fiction">Non-Fiction</option>
                         <option value="Romance">Romance</option>
+                        <option value="Childrens Books">Children's Books</option>
+                        <option value="Science and Technology">Science and Technology</option>
                     <?php endif; ?>
                 </select>
             </div>
@@ -244,13 +267,13 @@ try {
                        title="Enter published year">
             </div>
             <div class="form-row">
-                <input type="text" name="book_id" placeholder="Book ID (Optional)">
+                <input type="text" name="book_id" placeholder="Book ID (Optional)" title="Enter specific book copy ID like AGAUG071996-FIC00101">
             </div>
             <div class="form-row">
                 <select name="status">
                     <option value="">Book Status</option>
                     <option value="Available">Available</option>
-                    <option value="Unavailable">Unavailable</option>
+                    <option value="Borrowed">Currently Borrowed</option>
                 </select>
             </div>
             <div class="form-row">
@@ -279,6 +302,7 @@ try {
                 <thead>
                     <tr>
                         <th>Book Title</th>
+                        <th>Copy ID</th>
                         <th>Due Date</th>
                         <th>Status</th>
                     </tr>
@@ -288,7 +312,8 @@ try {
                         <?php $status_info = getStatusDisplay($book['due_date'], $book['status']); ?>
                         <tr>
                             <td><strong><?php echo htmlspecialchars($book['title']); ?></strong></td>
-                            <td><?php echo date('F j, Y', strtotime($book['due_date'])); ?></td>
+                            <td><small><?php echo htmlspecialchars($book['book_id']); ?></small></td>
+                            <td><?php echo date('M j, Y', strtotime($book['due_date'])); ?></td>
                             <td class="<?php echo $status_info['class']; ?>"><?php echo $status_info['text']; ?></td>
                         </tr>
                     <?php endforeach; ?>

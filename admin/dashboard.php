@@ -4,6 +4,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Set timezone to Philippines (adjust this to your actual timezone)
+date_default_timezone_set('Asia/Manila');
+
 // Admin authentication check (before including other files)
 if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
     header('Location: login.php?error=Please login to access admin panel');
@@ -20,44 +23,61 @@ try {
     $stmt->execute();
     $totalStudents = $stmt->fetch()['total'];
 
-    // Books borrowed today (fix the join to match your database structure)
+    // Books borrowed today (updated for new structure)
     $stmt = $conn->prepare("SELECT COUNT(*) as total FROM borrowed_books WHERE DATE(borrow_date) = CURDATE() AND status = 'borrowed'");
     $stmt->execute();
     $borrowedToday = $stmt->fetch()['total'];
 
-    // Total books available
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM books WHERE status = 'Available'");
+    // Total book copies available (updated for new structure)
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM book_copies WHERE status = 'Available'");
     $stmt->execute();
-    $totalBooks = $stmt->fetch()['total'];
+    $totalAvailableCopies = $stmt->fetch()['total'];
 
-    // Archived books count
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM books WHERE status = 'archived'");
+    // Total book titles available
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM book_titles WHERE available_copies > 0");
+    $stmt->execute();
+    $totalAvailableTitles = $stmt->fetch()['total'];
+
+    // Archived books count (updated for new structure)
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM book_copies WHERE status = 'Archived'");
     $stmt->execute();
     $archivedBooks = $stmt->fetch()['total'];
 
-    // Recent activities (fix joins to match your actual table structure)
+    // Recent activities (updated for new structure with proper joins and better time handling)
     $stmt = $conn->prepare("
         SELECT 
             'borrow' as activity_type,
             CONCAT(u.first_name, ' ', u.last_name) as student_name,
-            b.title as book_title,
-            bb.borrow_date as activity_date
+            bt.title as book_title,
+            bc.book_id as book_copy_id,
+            bb.borrow_date,
+            bb.created_at,
+            UNIX_TIMESTAMP(bb.created_at) as activity_timestamp
         FROM borrowed_books bb
         JOIN users u ON bb.user_id = u.user_id
-        JOIN books b ON bb.book_id = b.book_id
-        WHERE bb.status = 'borrowed'
-        ORDER BY bb.borrow_date DESC
+        JOIN book_copies bc ON bb.copy_id = bc.copy_id
+        JOIN book_titles bt ON bb.title_id = bt.title_id
+        WHERE bb.status IN ('borrowed', 'overdue', 'renewed')
+        ORDER BY bb.created_at DESC
         LIMIT 5
     ");
     $stmt->execute();
     $recentActivities = $stmt->fetchAll();
 
-    // Recently added books
+    // Recently added books (updated for new structure)
     $stmt = $conn->prepare("
-        SELECT book_id, title, author, category, status, created_at
-        FROM books 
-        WHERE status != 'archived'
-        ORDER BY created_at DESC 
+        SELECT 
+            bt.title_id, 
+            bt.title, 
+            bt.author, 
+            bt.category, 
+            bt.status,
+            bt.total_copies,
+            bt.available_copies,
+            bt.created_at
+        FROM book_titles bt 
+        WHERE bt.status != 'Archived'
+        ORDER BY bt.created_at DESC 
         LIMIT 5
     ");
     $stmt->execute();
@@ -67,35 +87,70 @@ try {
     $stmt = $conn->prepare("
         SELECT COUNT(*) as total 
         FROM borrowed_books bb
-        WHERE bb.status = 'borrowed' AND bb.due_date < CURDATE()
+        WHERE bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE()
     ");
     $stmt->execute();
     $overdueCount = $stmt->fetch()['total'];
+
+    // Total book titles in system
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM book_titles");
+    $stmt->execute();
+    $totalBookTitles = $stmt->fetch()['total'];
+
+    // Total book copies in system
+    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM book_copies");
+    $stmt->execute();
+    $totalBookCopies = $stmt->fetch()['total'];
 
 } catch (PDOException $e) {
     // Set default values if database query fails
     $totalStudents = 0;
     $borrowedToday = 0;
-    $totalBooks = 0;
+    $totalAvailableCopies = 0;
+    $totalAvailableTitles = 0;
     $archivedBooks = 0;
     $recentActivities = [];
     $recentBooks = [];
     $overdueCount = 0;
+    $totalBookTitles = 0;
+    $totalBookCopies = 0;
     
     // For debugging - uncomment this line:
     // echo "Database error: " . $e->getMessage();
 }
 
-// Helper function to format time ago
+// Updated helper function to format time ago with proper timezone handling
 function timeAgo($datetime) {
-    $time = time() - strtotime($datetime);
+    // If it's a timestamp, use it directly
+    if (is_numeric($datetime)) {
+        $timestamp = $datetime;
+    } else {
+        // Convert datetime string to timestamp
+        $timestamp = strtotime($datetime);
+    }
     
-    if ($time < 60) return 'Just now';
-    if ($time < 3600) return floor($time/60) . ' min ago';
-    if ($time < 86400) return floor($time/3600) . ' hour' . (floor($time/3600) > 1 ? 's' : '') . ' ago';
-    if ($time < 2592000) return floor($time/86400) . ' day' . (floor($time/86400) > 1 ? 's' : '') . ' ago';
+    // Get current timestamp
+    $now = time();
+    $time_diff = $now - $timestamp;
     
-    return date('M j, Y', strtotime($datetime));
+    // Debug: uncomment to see actual time difference
+    // echo "<!-- Time diff: $time_diff seconds, Now: $now, Then: $timestamp -->";
+    
+    if ($time_diff < 60) {
+        return 'Just now';
+    } elseif ($time_diff < 3600) {
+        $minutes = floor($time_diff / 60);
+        return $minutes . ' min' . ($minutes > 1 ? 's' : '') . ' ago';
+    } elseif ($time_diff < 86400) {
+        $hours = floor($time_diff / 3600);
+        return $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+    } elseif ($time_diff < 604800) {
+        $days = floor($time_diff / 86400);
+        return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+    } else {
+        // For older activities, show the actual date
+        return date('M j, Y g:i A', $timestamp);
+    }
 }
 
 // Helper function to get status badge class
@@ -103,7 +158,7 @@ function getStatusBadgeClass($status) {
     switch($status) {
         case 'Available': return 'status-available';
         case 'Borrowed': return 'status-borrowed';
-        case 'archived': return 'status-archived';
+        case 'Archived': return 'status-archived';
         default: return 'status-available';
     }
 }
@@ -154,6 +209,7 @@ function getStatusBadgeClass($status) {
                     <div class="admin-details">
                         <h3><?php echo htmlspecialchars($_SESSION['username'] ?? 'Admin User'); ?></h3>
                         <p>Library Administrator</p>
+                        <small style="color: #666;">Current time: <?php echo date('M j, Y g:i A'); ?></small>
                     </div>
                 </div>
             </header>
@@ -184,23 +240,23 @@ function getStatusBadgeClass($status) {
 
                 <div class="stat-card">
                     <div class="stat-header">
-                        <div class="stat-title">Available Books</div>
+                        <div class="stat-title">Available Copies</div>
                         <div class="stat-icon">📋</div>
                     </div>
-                    <div class="stat-number"><?php echo $totalBooks; ?></div>
+                    <div class="stat-number"><?php echo $totalAvailableCopies; ?></div>
                     <div class="stat-change">
-                        <span>📚</span> Ready to borrow
+                        <span>📚</span> <?php echo $totalAvailableTitles; ?> titles available
                     </div>
                 </div>
 
                 <div class="stat-card">
                     <div class="stat-header">
-                        <div class="stat-title">Archived Books</div>
+                        <div class="stat-title">Total Collection</div>
                         <div class="stat-icon">📦</div>
                     </div>
-                    <div class="stat-number"><?php echo $archivedBooks; ?></div>
+                    <div class="stat-number"><?php echo $totalBookCopies; ?></div>
                     <div class="stat-change">
-                        <span>🗃️</span> In archive
+                        <span>🗃️</span> <?php echo $totalBookTitles; ?> unique titles
                     </div>
                 </div>
             </div>
@@ -227,8 +283,17 @@ function getStatusBadgeClass($status) {
                                     <p><?php echo htmlspecialchars($activity['student_name']); ?> 
                                        <?php echo $activity['activity_type'] === 'borrow' ? 'borrowed' : 'returned'; ?> 
                                        "<?php echo htmlspecialchars($activity['book_title']); ?>"</p>
+                                    <?php if (isset($activity['book_copy_id'])): ?>
+                                        <small style="color: #666; font-family: monospace;">Copy ID: <?php echo htmlspecialchars($activity['book_copy_id']); ?></small>
+                                    <?php endif; ?>
                                 </div>
-                                <div class="activity-time"><?php echo timeAgo($activity['activity_date']); ?></div>
+                                <div class="activity-time">
+                                    <?php 
+                                    // Use timestamp if available, otherwise use created_at
+                                    $timeToShow = isset($activity['activity_timestamp']) ? $activity['activity_timestamp'] : $activity['created_at'];
+                                    echo timeAgo($timeToShow); 
+                                    ?>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -241,7 +306,7 @@ function getStatusBadgeClass($status) {
                                 <p><?php echo $overdueCount; ?> book<?php echo $overdueCount > 1 ? 's are' : ' is'; ?> overdue</p>
                             </div>
                             <div class="activity-time">
-                                <a href="manage_borrowed.php?filter=overdue" style="color: #d32f2f; text-decoration: none; font-weight: 600;">View →</a>
+                                <a href="manage_borrowed.php?overdue=yes" style="color: #d32f2f; text-decoration: none; font-weight: 600;">View →</a>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -251,7 +316,7 @@ function getStatusBadgeClass($status) {
                             <div class="activity-icon">📦</div>
                             <div class="activity-content">
                                 <h4>Archive Status</h4>
-                                <p><?php echo $archivedBooks; ?> book<?php echo $archivedBooks > 1 ? 's are' : ' is'; ?> archived</p>
+                                <p><?php echo $archivedBooks; ?> book cop<?php echo $archivedBooks > 1 ? 'ies are' : 'y is'; ?> archived</p>
                             </div>
                             <div class="activity-time">
                                 <a href="archive_books.php?view=archived" style="color: #856404; text-decoration: none; font-weight: 600;">Manage →</a>
@@ -271,16 +336,16 @@ function getStatusBadgeClass($status) {
                         <a href="add_book.php" class="action-btn">
                             📚 Add New Book
                         </a>
-                        <a href="manage_students.php?action=register" class="action-btn">
+                        <a href="manage_students.php" class="action-btn">
                             👤 Register Student
                         </a>
-                        <a href="manage_borrowed.php?action=new" class="action-btn secondary">
+                        <a href="manage_borrowed.php" class="action-btn secondary">
                             📖 Process Borrowing
                         </a>
-                        <a href="manage_borrowed.php?action=return" class="action-btn secondary">
+                        <a href="manage_borrowed.php" class="action-btn secondary">
                             ↩️ Process Return
                         </a>
-                        <a href="manage_borrowed.php?filter=overdue" class="action-btn secondary">
+                        <a href="manage_borrowed.php?overdue=yes" class="action-btn secondary">
                             ⚠️ View Overdue Books
                         </a>
                         <a href="archive_books.php" class="action-btn secondary">
@@ -306,6 +371,7 @@ function getStatusBadgeClass($status) {
                                 <th>Book Title</th>
                                 <th>Author</th>
                                 <th>Category</th>
+                                <th>Copies</th>
                                 <th>Status</th>
                                 <th>Date Added</th>
                                 <th>Actions</th>
@@ -318,13 +384,17 @@ function getStatusBadgeClass($status) {
                                     <td><?php echo htmlspecialchars($book['author']); ?></td>
                                     <td><?php echo htmlspecialchars($book['category']); ?></td>
                                     <td>
+                                        <span style="color: #28a745; font-weight: 600;"><?php echo $book['available_copies']; ?></span>
+                                        <span style="color: #666;">/ <?php echo $book['total_copies']; ?></span>
+                                    </td>
+                                    <td>
                                         <span class="status-badge <?php echo getStatusBadgeClass($book['status']); ?>">
                                             <?php echo ucfirst($book['status']); ?>
                                         </span>
                                     </td>
                                     <td><?php echo date('M j, Y', strtotime($book['created_at'])); ?></td>
                                     <td>
-                                        <a href="edit_book.php?id=<?php echo $book['book_id']; ?>" class="action-btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">Edit</a>
+                                        <a href="edit_book.php?id=<?php echo $book['title_id']; ?>" class="action-btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">Edit</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

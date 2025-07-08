@@ -1,6 +1,6 @@
 /* ========================================
    MY BORROWED BOOKS PAGE STYLES
-   my_borrowed.css
+   my_borrowed.css - Updated for new database structure
    ======================================== */
 
 /* Color Palette */
@@ -157,6 +157,7 @@
     margin: 2rem auto;
     padding: 2rem;
     background-color: var(--white);
+    border-radius: 0.5rem;
 }
 
 /* Alert Messages */
@@ -178,6 +179,30 @@
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
     color: #721c24;
+}
+
+/* Borrowed Summary Section */
+.borrowed-summary {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.borrowed-summary h3 {
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-size: 1.5rem;
+    color: var(--black);
+    margin: 0 0 0.5rem 0;
+}
+
+.overdue-warning {
+    color: #dc3545;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin: 0.5rem 0 0 0;
 }
 
 /* No Books Container */
@@ -336,10 +361,23 @@
     margin: 0.3rem 0;
     font-size: 0.95rem;
     color: #333;
+    line-height: 1.4;
 }
 
 .book-meta strong {
     color: var(--black);
+}
+
+/* New styles for enhanced book information */
+.book-id {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    background-color: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.3rem;
+    border: 1px solid #dee2e6;
+    color: var(--caramel);
+    font-weight: bold;
 }
 
 /* Borrow Info */
@@ -351,6 +389,7 @@
     margin: 0.3rem 0;
     font-size: 0.95rem;
     color: #333;
+    line-height: 1.4;
 }
 
 .borrow-details strong {
@@ -368,11 +407,53 @@
     font-weight: bold;
 }
 
-/* Responsive Design */
+/* Fine Amount Styling */
+.fine-amount {
+    color: #dc3545;
+    font-weight: bold;
+    background-color: rgba(220, 53, 69, 0.1);
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.3rem;
+    border-left: 3px solid #dc3545;
+    margin-top: 0.5rem;
+}
+
+/* Borrowing Info Section */
+.borrowing-info {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.borrowing-info h4 {
+    font-family: 'Sniglet', system-ui, sans-serif;
+    font-size: 1.2rem;
+    color: var(--black);
+    margin: 0 0 1rem 0;
+}
+
+.borrowing-info ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #495057;
+}
+
+.borrowing-info li {
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+/* Enhanced responsive design for new features */
 @media (max-width: 1024px) {
     .borrowed-books-grid {
         grid-template-columns: 1fr;
         gap: 1.5rem;
+    }
+    
+    .borrowed-summary h3 {
+        font-size: 1.3rem;
     }
 }
 
@@ -405,6 +486,24 @@
     .nav-menu {
         gap: 1rem;
     }
+    
+    .borrowed-summary {
+        padding: 1rem;
+    }
+    
+    .borrowed-summary h3 {
+        font-size: 1.2rem;
+    }
+    
+    .borrowing-info {
+        padding: 1rem;
+    }
+    
+    .book-id {
+        font-size: 0.8rem;
+        display: inline-block;
+        word-break: break-all;
+    }
 }
 
 @media (max-width: 480px) {
@@ -418,5 +517,31 @@
     
     .book-title {
         font-size: 1.2rem;
+    }
+    
+    .book-meta p,
+    .borrow-details p {
+        font-size: 0.9rem;
+    }
+    
+    .borrowed-summary h3 {
+        font-size: 1.1rem;
+    }
+    
+    .overdue-warning {
+        font-size: 1rem;
+    }
+    
+    .book-id {
+        font-size: 0.75rem;
+        padding: 0.15rem 0.3rem;
+    }
+    
+    .borrowing-info h4 {
+        font-size: 1.1rem;
+    }
+    
+    .borrowing-info li {
+        font-size: 0.9rem;
     }
 }

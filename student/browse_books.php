@@ -23,37 +23,47 @@ if ($user_id) {
 $search_title = $_GET['title'] ?? '';
 $search_author = $_GET['author'] ?? '';
 $search_category = $_GET['category'] ?? '';
+$search_published_year = $_GET['published_year'] ?? '';
 $search_book_id = $_GET['book_id'] ?? '';
 $search_status = $_GET['status'] ?? '';
 $sort_by = $_GET['sort_by'] ?? 'title_asc'; // Default sort
 
-// Build the WHERE clause for search
+// Build the WHERE clause for search using new table structure
 $where_conditions = [];
 $params = [];
 
 if (!empty($search_title)) {
-    $where_conditions[] = "title LIKE ?";
+    $where_conditions[] = "bt.title LIKE ?";
     $params[] = "%$search_title%";
 }
 
 if (!empty($search_author)) {
-    $where_conditions[] = "author LIKE ?";
+    $where_conditions[] = "bt.author LIKE ?";
     $params[] = "%$search_author%";
 }
 
 if (!empty($search_category)) {
-    $where_conditions[] = "category = ?";
+    $where_conditions[] = "bt.category = ?";
     $params[] = $search_category;
 }
 
+if (!empty($search_published_year)) {
+    $where_conditions[] = "bt.published_year = ?";
+    $params[] = $search_published_year;
+}
+
 if (!empty($search_book_id)) {
-    $where_conditions[] = "book_id = ?";
+    // Search in book_copies table for specific book_id
+    $where_conditions[] = "EXISTS (SELECT 1 FROM book_copies bc WHERE bc.title_id = bt.title_id AND bc.book_id = ?)";
     $params[] = $search_book_id;
 }
 
 if (!empty($search_status)) {
-    $where_conditions[] = "status = ?";
-    $params[] = $search_status;
+    if ($search_status === 'Available') {
+        $where_conditions[] = "bt.available_copies > 0";
+    } else {
+        $where_conditions[] = "bt.available_copies = 0";
+    }
 }
 
 $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
@@ -62,30 +72,52 @@ $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_c
 $order_clause = "ORDER BY ";
 switch ($sort_by) {
     case 'title_asc':
-        $order_clause .= "title ASC";
+        $order_clause .= "bt.title ASC";
         break;
     case 'title_desc':
-        $order_clause .= "title DESC";
+        $order_clause .= "bt.title DESC";
         break;
     case 'author_asc':
-        $order_clause .= "author ASC, title ASC";
+        $order_clause .= "bt.author ASC, bt.title ASC";
         break;
     case 'author_desc':
-        $order_clause .= "author DESC, title ASC";
+        $order_clause .= "bt.author DESC, bt.title ASC";
         break;
     case 'year_asc':
-        $order_clause .= "published_year ASC, title ASC";
+        $order_clause .= "bt.published_year ASC, bt.title ASC";
         break;
     case 'year_desc':
-        $order_clause .= "published_year DESC, title ASC";
+        $order_clause .= "bt.published_year DESC, bt.title ASC";
         break;
     default:
-        $order_clause .= "title ASC";
+        $order_clause .= "bt.title ASC";
 }
 
-// Get all books with search filters and sorting
+// Get all book titles with their availability status using new database structure
 try {
-    $query = "SELECT book_id, book_code, title, author, category, published_year, status, book_image FROM books $where_clause $order_clause";
+    $query = "
+        SELECT 
+            bt.title_id,
+            bt.title,
+            bt.author,
+            bt.category,
+            bt.published_year,
+            bt.published_month,
+            bt.book_image,
+            bt.total_copies,
+            bt.available_copies,
+            CASE 
+                WHEN bt.available_copies > 0 THEN 'Available'
+                ELSE 'Borrowed'
+            END as status,
+            GROUP_CONCAT(bc.book_id ORDER BY bc.copy_number SEPARATOR ', ') as sample_book_ids
+        FROM book_titles bt
+        LEFT JOIN book_copies bc ON bt.title_id = bc.title_id
+        $where_clause
+        GROUP BY bt.title_id, bt.title, bt.author, bt.category, bt.published_year, bt.published_month, bt.book_image, bt.total_copies, bt.available_copies
+        $order_clause
+    ";
+    
     $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -192,6 +224,32 @@ function getFilterDisplayText($sort_by) {
             color: #666;
             margin-top: 0.25rem;
         }
+
+        /* Updated book meta styles for new fields */
+        .copies-info {
+            display: flex;
+            gap: 1rem;
+            margin: 0.5rem 0;
+            font-size: 0.85rem;
+        }
+        
+        .copies-available {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .copies-total {
+            color: #666;
+        }
+        
+        .sample-ids {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 0.5rem;
+            word-break: break-all;
+            line-height: 1.2;
+        }
     </style>
 </head>
 <body>
@@ -229,6 +287,13 @@ function getFilterDisplayText($sort_by) {
         <div class="alert alert-error">
             <?php echo htmlspecialchars($_SESSION['borrow_error']); ?>
             <?php unset($_SESSION['borrow_error']); ?>
+        </div>
+    <?php endif; ?>
+    
+    <?php if (isset($_SESSION['borrow_success'])): ?>
+        <div class="alert alert-success">
+            <?php echo htmlspecialchars($_SESSION['borrow_success']); ?>
+            <?php unset($_SESSION['borrow_success']); ?>
         </div>
     <?php endif; ?>
     
@@ -295,6 +360,10 @@ function getFilterDisplayText($sort_by) {
                 if (!$book['book_image'] || !file_exists($book_image_path)) {
                     $book_image_path = $default_image_path;
                 }
+                
+                // Get first book ID for display purposes
+                $sample_book_ids = explode(', ', $book['sample_book_ids'] ?? '');
+                $display_book_id = $sample_book_ids[0] ?? 'N/A';
                 ?>
                 <div class="book-card">
                     <div class="book-content">
@@ -306,27 +375,48 @@ function getFilterDisplayText($sort_by) {
                         <div class="book-details">
                             <div class="book-info">
                                 <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
-                                <div class="book-meta"><strong>Book Code:</strong> <?php echo htmlspecialchars($book['book_code'] ?? 'N/A'); ?></div>
+                                <div class="book-meta"><strong>Book ID:</strong> <?php echo htmlspecialchars($display_book_id); ?></div>
                                 <div class="book-meta"><strong>Author:</strong> <?php echo htmlspecialchars($book['author'] ?? 'Unknown'); ?></div>
                                 <div class="book-meta"><strong>Category:</strong> <?php echo htmlspecialchars($book['category'] ?? 'General'); ?></div>
-                                <div class="book-meta"><strong>Published:</strong> <?php echo htmlspecialchars($book['published_year'] ?? 'N/A'); ?></div>
+                                <div class="book-meta"><strong>Published:</strong> 
+                                    <?php 
+                                    $published = $book['published_month'] && $book['published_year'] 
+                                        ? $book['published_month'] . ' ' . $book['published_year']
+                                        : ($book['published_year'] ?? 'N/A');
+                                    echo htmlspecialchars($published);
+                                    ?>
+                                </div>
+                                <div class="copies-info">
+                                    <span class="copies-available">Available: <?php echo $book['available_copies']; ?></span>
+                                    <span class="copies-total">Total: <?php echo $book['total_copies']; ?></span>
+                                </div>
                                 <div class="book-meta"><strong>Status:</strong> 
                                     <span class="book-status <?php echo $book['status'] === 'Available' ? 'status-available' : 'status-borrowed'; ?>">
                                         <?php echo htmlspecialchars($book['status']); ?>
                                     </span>
                                 </div>
+                                <?php if (count($sample_book_ids) > 1): ?>
+                                    <div class="sample-ids">
+                                        <strong>Copy IDs:</strong> <?php echo htmlspecialchars(implode(', ', array_slice($sample_book_ids, 0, 3))); ?>
+                                        <?php if (count($sample_book_ids) > 3): ?>
+                                            ... (<?php echo count($sample_book_ids); ?> total)
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <div class="button-container">
                                 <?php if ($book['status'] === 'Available'): ?>
                                     <button class="borrow-btn" onclick="showBorrowModal(
-                                        <?php echo $book['book_id']; ?>, 
+                                        <?php echo $book['title_id']; ?>, 
                                         '<?php echo addslashes($book['title']); ?>', 
                                         '<?php echo addslashes($book['author'] ?? 'Unknown'); ?>', 
                                         '<?php echo addslashes($book['category'] ?? 'General'); ?>',
-                                        '<?php echo addslashes($book['published_year'] ?? 'N/A'); ?>',
+                                        '<?php echo addslashes($published); ?>',
                                         '<?php echo addslashes($book_image_path); ?>',
                                         '<?php echo addslashes($book['status']); ?>',
-                                        '<?php echo addslashes($book['book_code'] ?? 'N/A'); ?>'
+                                        '<?php echo addslashes($display_book_id); ?>',
+                                        <?php echo $book['available_copies']; ?>,
+                                        <?php echo $book['total_copies']; ?>
                                     )">Borrow Now</button>
                                 <?php else: ?>
                                     <button class="borrow-btn" disabled>Not Available</button>
@@ -351,16 +441,18 @@ function getFilterDisplayText($sort_by) {
             </div>
             <div class="modal-book-details">
                 <h3 id="modalBookTitle"></h3>
-                <p><strong>Book Code:</strong> <span id="modalBookCode"></span></p>
+                <p><strong>Book ID:</strong> <span id="modalBookCode"></span></p>
                 <p><strong>Author:</strong> <span id="modalBookAuthor"></span></p>
                 <p><strong>Category:</strong> <span id="modalBookCategory"></span></p>
                 <p><strong>Published:</strong> <span id="modalBookPublished"></span></p>
+                <p><strong>Available Copies:</strong> <span id="modalAvailableCopies"></span> of <span id="modalTotalCopies"></span></p>
                 <p><strong>Status:</strong> <span class="status-available"></span></p>
             </div>
         </div>
         <div class="borrow-note">
             <p><strong>Note:</strong> You may borrow up to 2 books for a period of 7 days (including weekends). A ₱10.00 fine will be charged per day for each overdue book.</p>
             <p><strong>Current Status:</strong> You have borrowed <span id="currentBorrowedCount"><?php echo $borrowed_count; ?></span> out of 2 books.</p>
+            <p><strong>Copy Assignment:</strong> A specific copy will be automatically assigned when you confirm the borrowing.</p>
         </div>
         <div class="modal-buttons">
             <button id="confirmBorrow" class="btn-confirm">Confirm</button>
@@ -370,7 +462,7 @@ function getFilterDisplayText($sort_by) {
 </div>
 
 <script>
-let currentBookId = null;
+let currentTitleId = null;
 const borrowedCount = <?php echo $borrowed_count; ?>;
 const maxBorrowLimit = 2;
 
@@ -396,27 +488,31 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// FIXED showBorrowModal function with forced image constraints and Book Code
-function showBorrowModal(bookId, title, author, category, publishedYear, imagePath, status, bookCode) {
+// Updated showBorrowModal function for new structure
+function showBorrowModal(titleId, title, author, category, publishedYear, imagePath, status, sampleBookId, availableCopies, totalCopies) {
     console.log('showBorrowModal called with:', {
-        bookId: bookId,
+        titleId: titleId,
         title: title, 
         author: author, 
         category: category, 
         publishedYear: publishedYear, 
         imagePath: imagePath,
         status: status,
-        bookCode: bookCode
+        sampleBookId: sampleBookId,
+        availableCopies: availableCopies,
+        totalCopies: totalCopies
     });
     
-    currentBookId = bookId;
+    currentTitleId = titleId;
     
-    // Set ALL book details including Book Code
+    // Set ALL book details
     document.getElementById('modalBookTitle').textContent = title;
-    document.getElementById('modalBookCode').textContent = bookCode || 'N/A';
+    document.getElementById('modalBookCode').textContent = sampleBookId || 'N/A';
     document.getElementById('modalBookAuthor').textContent = author;
     document.getElementById('modalBookCategory').textContent = category;
     document.getElementById('modalBookPublished').textContent = publishedYear || 'N/A';
+    document.getElementById('modalAvailableCopies').textContent = availableCopies;
+    document.getElementById('modalTotalCopies').textContent = totalCopies;
     
     // Update status
     const statusElement = document.querySelector('#borrowModal .status-available');
@@ -424,7 +520,7 @@ function showBorrowModal(bookId, title, author, category, publishedYear, imagePa
         statusElement.textContent = status || 'Available';
     }
     
-    // FIXED: Handle the image with forced constraints
+    // Handle the image with forced constraints
     const modalBookImage = document.getElementById('modalBookImage');
     const modalImageContainer = document.querySelector('.modal-book-image');
     
@@ -515,40 +611,12 @@ function showBorrowModal(bookId, title, author, category, publishedYear, imagePa
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     
-    // FORCE modal layout constraints
-    const modalContent = modal.querySelector('.modal-content');
-    if (modalContent) {
-        modalContent.style.maxWidth = '600px';
-        modalContent.style.overflow = 'hidden';
-        modalContent.style.boxSizing = 'border-box';
-    }
-    
-    // FORCE book info constraints
-    const modalBookInfo = modal.querySelector('.modal-book-info');
-    if (modalBookInfo) {
-        modalBookInfo.style.overflow = 'hidden';
-        modalBookInfo.style.width = '100%';
-        modalBookInfo.style.maxWidth = '100%';
-        modalBookInfo.style.boxSizing = 'border-box';
-    }
-    
-    // FORCE book details constraints
-    const modalBookDetails = modal.querySelector('.modal-book-details');
-    if (modalBookDetails) {
-        modalBookDetails.style.minWidth = '0';
-        modalBookDetails.style.maxWidth = 'calc(100% - 140px)';
-        modalBookDetails.style.overflow = 'hidden';
-        modalBookDetails.style.overflowWrap = 'break-word';
-        modalBookDetails.style.wordWrap = 'break-word';
-        modalBookDetails.style.boxSizing = 'border-box';
-    }
-    
     console.log('Modal displayed with forced constraints');
 }
 
 function closeBorrowModal() {
     document.getElementById('borrowModal').style.display = 'none';
-    currentBookId = null;
+    currentTitleId = null;
     
     // Restore body scroll
     document.body.style.overflow = '';
@@ -557,18 +625,18 @@ function closeBorrowModal() {
 }
 
 document.getElementById('confirmBorrow').onclick = function() {
-    if (currentBookId) {
+    if (currentTitleId) {
         // Check borrowing limit before proceeding
         if (borrowedCount >= maxBorrowLimit) {
             alert('⚠️ Borrowing Limit Reached!\n\nYou have already borrowed ' + borrowedCount + ' books. You can only borrow a maximum of ' + maxBorrowLimit + ' books at a time.\n\nPlease return a book before borrowing a new one.');
             closeBorrowModal();
             return;
         }
-        borrowBook(currentBookId);
+        borrowBook(currentTitleId);
     }
 };
 
-function borrowBook(bookId) {
+function borrowBook(titleId) {
     // Double-check the limit client-side
     if (borrowedCount >= maxBorrowLimit) {
         alert('⚠️ You have reached the maximum borrowing limit of ' + maxBorrowLimit + ' books.');
@@ -580,17 +648,17 @@ function borrowBook(bookId) {
     confirmBtn.textContent = 'Processing...';
     confirmBtn.disabled = true;
     
-    // Create a form and submit it
+    // Create a form and submit it - now using title_id instead of book_id
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = 'borrow_book.php';
     
-    const bookInput = document.createElement('input');
-    bookInput.type = 'hidden';
-    bookInput.name = 'book_id';
-    bookInput.value = bookId;
+    const titleInput = document.createElement('input');
+    titleInput.type = 'hidden';
+    titleInput.name = 'title_id';
+    titleInput.value = titleId;
     
-    form.appendChild(bookInput);
+    form.appendChild(titleInput);
     document.body.appendChild(form);
     form.submit();
 }
@@ -602,54 +670,6 @@ window.onclick = function(event) {
         closeBorrowModal();
     }
 }
-
-// Additional safety: Re-enforce constraints when modal becomes visible
-const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-            const modal = document.getElementById('borrowModal');
-            if (modal && modal.style.display === 'block') {
-                // Modal is now visible, double-check image constraints
-                const modalBookImage = document.getElementById('modalBookImage');
-                const modalImageContainer = document.querySelector('.modal-book-image');
-                
-                if (modalBookImage && modalImageContainer) {
-                    // Small delay to let any other scripts finish
-                    setTimeout(function() {
-                        // Re-enforce container constraints
-                        modalImageContainer.style.width = '120px';
-                        modalImageContainer.style.height = '180px';
-                        modalImageContainer.style.overflow = 'hidden';
-                        
-                        // Re-enforce image constraints
-                        modalBookImage.style.width = '120px';
-                        modalBookImage.style.height = '180px';
-                        modalBookImage.style.maxWidth = '120px';
-                        modalBookImage.style.maxHeight = '180px';
-                        modalBookImage.style.objectFit = 'cover';
-                        modalBookImage.style.position = 'absolute';
-                        modalBookImage.style.top = '0';
-                        modalBookImage.style.left = '0';
-                        
-                        console.log('🔒 Image constraints re-enforced by observer');
-                    }, 50);
-                }
-            }
-        }
-    });
-});
-
-// Start observing the modal for changes
-document.addEventListener('DOMContentLoaded', function() {
-    const modal = document.getElementById('borrowModal');
-    if (modal) {
-        observer.observe(modal, {
-            attributes: true,
-            attributeFilter: ['style']
-        });
-        console.log('📋 Modal observer initialized');
-    }
-});
 </script>
 
 <?php include '../includes/footer.php'; ?>

@@ -1,5 +1,17 @@
 <?php
 session_start();
+
+// Include database connection - just to verify it works
+try {
+    require_once 'includes/db.php';
+    // Simple test to ensure database is connected
+    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM book_titles");
+    $stmt->execute();
+    $db_connected = true;
+} catch (Exception $e) {
+    $db_connected = false;
+    error_log("Database connection issue: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -28,6 +40,12 @@ session_start();
         <a href="student/login.php" class="btn">LOGIN AS STUDENT</a>
         <a href="admin/login.php" class="btn">LOGIN AS ADMIN</a>
     </div>
+
+    <?php if (!$db_connected): ?>
+        <div style="background: #ffebee; border: 1px solid #f44336; padding: 10px; margin: 20px; border-radius: 5px; color: #c62828; text-align: center;">
+            <strong>Note:</strong> Database connection issue detected. Please check your database configuration.
+        </div>
+    <?php endif; ?>
 </div>
 
 <?php include 'includes/footer.php'; ?>

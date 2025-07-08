@@ -13,29 +13,43 @@ if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
 // Include database connection
 require_once '../includes/db.php';
 
-// Handle book deletion
-if (isset($_POST['delete_book']) && isset($_POST['book_id'])) {
+// Handle book deletion (updated for new structure)
+if (isset($_POST['delete_book']) && isset($_POST['title_id'])) {
     try {
-        // Check if book is currently borrowed
-        $checkStmt = $conn->prepare("SELECT COUNT(*) as count FROM borrowed_books WHERE book_id = ? AND status = 'borrowed'");
-        $checkStmt->execute([$_POST['book_id']]);
+        // Check if any copies of this book are currently borrowed
+        $checkStmt = $conn->prepare("
+            SELECT COUNT(*) as count 
+            FROM borrowed_books bb 
+            WHERE bb.title_id = ? AND bb.status IN ('borrowed', 'overdue', 'renewed')
+        ");
+        $checkStmt->execute([$_POST['title_id']]);
         $borrowed = $checkStmt->fetch()['count'];
         
         if ($borrowed > 0) {
-            $message = "Cannot delete book. It is currently borrowed.";
+            $message = "Cannot delete book. One or more copies are currently borrowed.";
             $message_type = "error";
         } else {
-            // Delete the book
-            $deleteStmt = $conn->prepare("DELETE FROM books WHERE book_id = ?");
-            if ($deleteStmt->execute([$_POST['book_id']])) {
-                $message = "Book deleted successfully.";
+            // Start transaction
+            $conn->beginTransaction();
+            
+            // Delete all copies first (due to foreign key constraints)
+            $deleteCopiesStmt = $conn->prepare("DELETE FROM book_copies WHERE title_id = ?");
+            $deleteCopiesStmt->execute([$_POST['title_id']]);
+            
+            // Delete the book title
+            $deleteTitleStmt = $conn->prepare("DELETE FROM book_titles WHERE title_id = ?");
+            if ($deleteTitleStmt->execute([$_POST['title_id']])) {
+                $conn->commit();
+                $message = "Book and all its copies deleted successfully.";
                 $message_type = "success";
             } else {
+                $conn->rollBack();
                 $message = "Failed to delete book.";
                 $message_type = "error";
             }
         }
     } catch (PDOException $e) {
+        $conn->rollBack();
         $message = "Error: " . $e->getMessage();
         $message_type = "error";
     }
@@ -48,30 +62,35 @@ $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'created_at';
 $sort_order = isset($_GET['order']) ? $_GET['order'] : 'DESC';
 
-// Build the query
+// Build the query for new structure
 $where_conditions = [];
 $params = [];
 
 if (!empty($search)) {
-    $where_conditions[] = "(title LIKE ? OR author LIKE ?)";
+    $where_conditions[] = "(bt.title LIKE ? OR bt.author LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
 }
 
 if (!empty($category_filter)) {
-    $where_conditions[] = "category = ?";
+    $where_conditions[] = "bt.category = ?";
     $params[] = $category_filter;
 }
 
 if (!empty($status_filter)) {
-    $where_conditions[] = "status = ?";
-    $params[] = $status_filter;
+    if ($status_filter === 'Available') {
+        $where_conditions[] = "bt.available_copies > 0";
+    } elseif ($status_filter === 'Borrowed') {
+        $where_conditions[] = "bt.available_copies = 0 AND bt.total_copies > 0";
+    } elseif ($status_filter === 'Archived') {
+        $where_conditions[] = "bt.status = 'Archived'";
+    }
 }
 
 $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
-// Valid sort columns
-$valid_sorts = ['title', 'author', 'category', 'published_year', 'status', 'created_at'];
+// Valid sort columns for new structure
+$valid_sorts = ['title', 'author', 'category', 'published_year', 'total_copies', 'available_copies', 'created_at'];
 if (!in_array($sort_by, $valid_sorts)) {
     $sort_by = 'created_at';
 }
@@ -83,7 +102,7 @@ if (!in_array(strtoupper($sort_order), $valid_orders)) {
 
 try {
     // Get total count for pagination
-    $countQuery = "SELECT COUNT(*) as total FROM books $where_clause";
+    $countQuery = "SELECT COUNT(*) as total FROM book_titles bt $where_clause";
     $countStmt = $conn->prepare($countQuery);
     $countStmt->execute($params);
     $totalBooks = $countStmt->fetch()['total'];
@@ -94,14 +113,29 @@ try {
     $offset = ($page - 1) * $books_per_page;
     $total_pages = ceil($totalBooks / $books_per_page);
 
-    // Get books with pagination
-    $query = "SELECT * FROM books $where_clause ORDER BY $sort_by $sort_order LIMIT $books_per_page OFFSET $offset";
+    // Get books with pagination (updated query)
+    $query = "
+        SELECT 
+            bt.*,
+            CASE 
+                WHEN bt.available_copies > 0 THEN 'Available'
+                WHEN bt.available_copies = 0 AND bt.total_copies > 0 THEN 'Borrowed'
+                ELSE 'Archived'
+            END as display_status,
+            GROUP_CONCAT(bc.book_id ORDER BY bc.copy_number SEPARATOR ', ') as sample_book_ids
+        FROM book_titles bt
+        LEFT JOIN book_copies bc ON bt.title_id = bc.title_id
+        $where_clause
+        GROUP BY bt.title_id
+        ORDER BY bt.$sort_by $sort_order 
+        LIMIT $books_per_page OFFSET $offset
+    ";
     $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $books = $stmt->fetchAll();
 
     // Get categories for filter dropdown
-    $categoryStmt = $conn->prepare("SELECT DISTINCT category FROM books ORDER BY category");
+    $categoryStmt = $conn->prepare("SELECT DISTINCT category FROM book_titles ORDER BY category");
     $categoryStmt->execute();
     $categories = $categoryStmt->fetchAll();
 
@@ -147,12 +181,24 @@ function buildUrl($newParams = []) {
     <link rel="stylesheet" href="../assets/css/admin_manage_books.css">
     <?php include '../includes/favicon.php'; ?>
     <style>
-        .book-code {
+        .book-copies {
             font-size: 0.8rem;
             color: #666;
             margin-bottom: 0.5rem;
             font-weight: 600;
-            letter-spacing: 0.5px;
+        }
+        
+        .available-copies {
+            color: #28a745;
+        }
+        
+        .sample-ids {
+            font-size: 0.7rem;
+            color: #888;
+            font-family: 'Courier New', monospace;
+            margin-top: 0.3rem;
+            word-break: break-all;
+            line-height: 1.2;
         }
     </style>
 
@@ -234,7 +280,8 @@ function buildUrl($newParams = []) {
                             <select id="status" name="status">
                                 <option value="">All Status</option>
                                 <option value="Available" <?php echo $status_filter === 'Available' ? 'selected' : ''; ?>>Available</option>
-                                <option value="Borrowed" <?php echo $status_filter === 'Borrowed' ? 'selected' : ''; ?>>Borrowed</option>
+                                <option value="Borrowed" <?php echo $status_filter === 'Borrowed' ? 'selected' : ''; ?>>All Borrowed</option>
+                                <option value="Archived" <?php echo $status_filter === 'Archived' ? 'selected' : ''; ?>>Archived</option>
                             </select>
                         </div>
                         
@@ -251,14 +298,15 @@ function buildUrl($newParams = []) {
             <div class="books-table">
                 <div class="table-header">
                     <div>
-                        <h2>📚 Books (<?php echo $totalBooks; ?>)</h2>
+                        <h2>📚 Books (<?php echo $totalBooks; ?> titles)</h2>
                         <p>Sort by: 
                             <a href="<?php echo buildUrl(['sort' => 'title', 'order' => $sort_by === 'title' && $sort_order === 'ASC' ? 'DESC' : 'ASC']); ?>">Title</a> | 
                             <a href="<?php echo buildUrl(['sort' => 'author', 'order' => $sort_by === 'author' && $sort_order === 'ASC' ? 'DESC' : 'ASC']); ?>">Author</a> | 
+                            <a href="<?php echo buildUrl(['sort' => 'total_copies', 'order' => $sort_by === 'total_copies' && $sort_order === 'ASC' ? 'DESC' : 'ASC']); ?>">Copies</a> |
                             <a href="<?php echo buildUrl(['sort' => 'created_at', 'order' => $sort_by === 'created_at' && $sort_order === 'ASC' ? 'DESC' : 'ASC']); ?>">Date Added</a>
                         </p>
                     </div>
-                    <a href="add_book.php" class="action-btn" style="background: white; color: var(--orange);">
+                    <a href="add_book.php" class="action-btn" style="background: var(--caramel); color: var(--white);">
                         ➕ Add New Book
                     </a>
                 </div>
@@ -272,6 +320,10 @@ function buildUrl($newParams = []) {
                 <?php else: ?>
                     <div class="books-grid">
                         <?php foreach ($books as $book): ?>
+                            <?php
+                            $sample_ids = explode(', ', $book['sample_book_ids'] ?? '');
+                            $display_ids = array_slice($sample_ids, 0, 2); // Show first 2 IDs
+                            ?>
                             <div class="book-card">
                                 <div class="book-image">
                                     <?php if (!empty($book['book_image'])): ?>
@@ -284,7 +336,10 @@ function buildUrl($newParams = []) {
                                 </div>
                                 
                                 <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
-                                <div class="book-code">ID: <?php echo htmlspecialchars($book['book_code'] ?? 'N/A'); ?></div>
+                                <div class="book-copies">
+                                    <span class="available-copies"><?php echo $book['available_copies']; ?> available</span> 
+                                    / <?php echo $book['total_copies']; ?> total
+                                </div>
                                 <div class="book-author">by <?php echo htmlspecialchars($book['author'] ?? 'Unknown Author'); ?></div>
                                 
                                 <div class="book-meta">
@@ -292,20 +347,30 @@ function buildUrl($newParams = []) {
                                     <span class="book-year"><?php echo $book['published_year'] ?? 'N/A'; ?></span>
                                 </div>
                                 
+                                <?php if (!empty($book['sample_book_ids'])): ?>
+                                    <div class="sample-ids">
+                                        Sample IDs: <?php echo htmlspecialchars(implode(', ', $display_ids)); ?>
+                                        <br>
+                                        <?php if (count($sample_ids) > 2): ?>
+                                            ... (+<?php echo count($sample_ids) - 2; ?> more)
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                                
                                 <div style="margin-bottom: 1rem;">
-                                    <span class="status-badge <?php echo getStatusBadgeClass($book['status']); ?>">
-                                        <?php echo ucfirst($book['status']); ?>
+                                    <span class="status-badge <?php echo getStatusBadgeClass($book['display_status']); ?>">
+                                        <?php echo ucfirst($book['display_status']); ?>
                                     </span>
                                 </div>
                                 
                                 <div class="book-actions">
-                                    <a href="edit_book.php?id=<?php echo $book['book_id']; ?>" class="btn-edit">
+                                    <a href="edit_book.php?id=<?php echo $book['title_id']; ?>" class="btn-edit">
                                         ✏️ Edit
                                     </a>
                                     
                                     <form method="POST" style="display: inline;" 
-                                          onsubmit="return confirm('Are you sure you want to delete this book?');">
-                                        <input type="hidden" name="book_id" value="<?php echo $book['book_id']; ?>">
+                                          onsubmit="return confirm('Are you sure you want to delete this book and all its copies? This action cannot be undone.');">
+                                        <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                         <button type="submit" name="delete_book" class="btn-delete">
                                             🗑️ Delete
                                         </button>

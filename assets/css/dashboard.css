@@ -1,6 +1,6 @@
 /* ========================================
    DASHBOARD PAGE STYLES
-   dashboard.css
+   dashboard.css - Updated for new database structure
    ======================================== */
 
 /* Color Palette */
@@ -383,40 +383,63 @@ html, body {
     flex-direction: column;
 }
 
-/* Borrowed Books Table */
+/* Borrowed Books Table - Updated for new Copy ID column */
 .borrowed-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 1rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem; /* Slightly smaller to fit new column */
     flex: 1;
 }
 
 .borrowed-table th,
 .borrowed-table td {
-    padding: 0.8rem 0.5rem;
+    padding: 0.6rem 0.4rem; /* Reduced padding for better fit */
     text-align: left;
     border-bottom: 1px solid #eee;
+    vertical-align: top;
 }
 
 .borrowed-table th {
     font-weight: 600;
     background-color: #f8f9fa;
     font-family: 'Sniglet', system-ui, sans-serif;
+    font-size: 0.8rem;
 }
 
-.borrowed-table td strong {
+/* Specific column widths for better layout */
+.borrowed-table th:nth-child(1) { width: 40%; } /* Book Title */
+.borrowed-table th:nth-child(2) { width: 25%; } /* Copy ID */
+.borrowed-table th:nth-child(3) { width: 20%; } /* Due Date */
+.borrowed-table th:nth-child(4) { width: 15%; } /* Status */
+
+.borrowed-table td:nth-child(1) strong {
     font-weight: 600;
+    line-height: 1.3;
+}
+
+.borrowed-table td:nth-child(2) {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: #666;
+    word-break: break-all;
+}
+
+.borrowed-table td:nth-child(3) {
+    font-size: 0.8rem;
+    white-space: nowrap;
 }
 
 .borrowed-table .status-green {
     color: #28a745;
     font-weight: 600;
+    font-size: 0.8rem;
 }
 
 .borrowed-table .status-red {
     color: #dc3545;
     font-weight: 600;
+    font-size: 0.8rem;
 }
 
 /* No Books Message */
@@ -498,6 +521,14 @@ html, body {
         top: 80px;
         height: calc(100% - 80px);
     }
+    
+    /* Adjust borrowed books table for medium screens */
+    .borrowed-table {
+        font-size: 0.8rem;
+    }
+    
+    .borrowed-table th:nth-child(2) { width: 30%; } /* More space for Copy ID */
+    .borrowed-table th:nth-child(1) { width: 35%; } /* Less space for title */
 }
 
 @media (max-width: 768px) {
@@ -575,6 +606,24 @@ html, body {
         top: 140px; /* More space for stacked mobile nav */
         height: calc(100% - 140px);
     }
+    
+    /* Mobile table adjustments - Stack table content */
+    .borrowed-table {
+        font-size: 0.75rem;
+    }
+    
+    .borrowed-table th:nth-child(1) { width: 30%; } /* Book Title */
+    .borrowed-table th:nth-child(2) { width: 25%; } /* Copy ID */
+    .borrowed-table th:nth-child(3) { width: 25%; } /* Due Date */
+    .borrowed-table th:nth-child(4) { width: 20%; } /* Status */
+    
+    .borrowed-table td:nth-child(2) {
+        font-size: 0.7rem;
+    }
+    
+    .borrowed-table td:nth-child(3) {
+        font-size: 0.75rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -600,6 +649,28 @@ html, body {
     .banner-bg {
         top: 160px;
         height: calc(100% - 160px);
+    }
+    
+    /* Very small screen table - Consider card layout */
+    .borrowed-table th,
+    .borrowed-table td {
+        padding: 0.4rem 0.2rem;
+    }
+    
+    .borrowed-table {
+        font-size: 0.7rem;
+    }
+    
+    .borrowed-table th:nth-child(1) { width: 35%; }
+    .borrowed-table th:nth-child(2) { 
+        width: 30%; 
+        word-break: break-all;
+    }
+    .borrowed-table th:nth-child(3) { width: 20%; }
+    .borrowed-table th:nth-child(4) { width: 15%; }
+    
+    .borrowed-table td:nth-child(2) {
+        font-size: 0.65rem;
     }
 }
 

@@ -6,25 +6,32 @@ require_once '../includes/db.php';
 $user_id = $_SESSION['user_id'] ?? $_SESSION['student_id'] ?? null;
 $user_name = $_SESSION['user_name'] ?? $_SESSION['full_name'] ?? $_SESSION['username'] ?? 'Student';
 
-// Get all borrowed books for the current user
+// Get all borrowed books for the current user using new database structure
 $borrowed_books = [];
 if ($user_id) {
     try {
         $borrowed_query = "
             SELECT 
-                b.book_id,
-                b.title,
-                b.author,
-                b.category,
-                b.published_year,
-                b.book_image,
+                bt.title_id,
+                bt.title,
+                bt.author,
+                bt.category,
+                bt.published_year,
+                bt.published_month,
+                bt.book_image,
+                bc.book_id,
+                bc.copy_number,
+                bc.condition_status,
                 bb.borrow_date,
                 bb.due_date,
                 bb.status,
-                bb.id as borrow_id
+                bb.id as borrow_id,
+                bb.renewal_count,
+                bb.fine_amount
             FROM borrowed_books bb
-            JOIN books b ON bb.book_id = b.book_id
-            WHERE bb.user_id = ? AND bb.status IN ('borrowed', 'overdue')
+            JOIN book_copies bc ON bb.copy_id = bc.copy_id
+            JOIN book_titles bt ON bb.title_id = bt.title_id
+            WHERE bb.user_id = ? AND bb.status IN ('borrowed', 'overdue', 'renewed')
             ORDER BY bb.due_date ASC
         ";
         
@@ -60,6 +67,16 @@ function getDaysRemaining($due_date) {
     } else {
         return $diff->days;
     }
+}
+
+// Function to format published date
+function formatPublishedDate($month, $year) {
+    if ($month && $year) {
+        return $month . ' ' . $year;
+    } elseif ($year) {
+        return $year;
+    }
+    return 'N/A';
 }
 ?>
 
@@ -113,6 +130,13 @@ function getDaysRemaining($due_date) {
         </div>
     <?php endif; ?>
     
+    <?php if (isset($_SESSION['borrow_error'])): ?>
+        <div class="alert alert-error">
+            <?php echo htmlspecialchars($_SESSION['borrow_error']); ?>
+            <?php unset($_SESSION['borrow_error']); ?>
+        </div>
+    <?php endif; ?>
+    
     <?php if (empty($borrowed_books)): ?>
         <div class="no-books-container">
             <div class="no-books-message">
@@ -122,11 +146,26 @@ function getDaysRemaining($due_date) {
             </div>
         </div>
     <?php else: ?>
+        <div class="borrowed-summary">
+            <h3>Currently Borrowed: <?php echo count($borrowed_books); ?> of 2 books</h3>
+            <?php 
+            $overdue_count = 0;
+            foreach ($borrowed_books as $book) {
+                if (getDaysRemaining($book['due_date']) < 0) {
+                    $overdue_count++;
+                }
+            }
+            if ($overdue_count > 0): ?>
+                <p class="overdue-warning">⚠️ You have <?php echo $overdue_count; ?> overdue book<?php echo $overdue_count > 1 ? 's' : ''; ?>!</p>
+            <?php endif; ?>
+        </div>
+
         <div class="borrowed-books-grid">
             <?php foreach ($borrowed_books as $book): ?>
                 <?php 
                 $status_info = getStatusDisplay($book['due_date'], $book['status']);
                 $days_remaining = getDaysRemaining($book['due_date']);
+                $published_date = formatPublishedDate($book['published_month'], $book['published_year']);
                 
                 // Handle book image - carefully check if image exists
                 $book_image_src = '';
@@ -146,22 +185,49 @@ function getDaysRemaining($due_date) {
                     <div class="book-details">
                         <h3 class="book-title"><?php echo htmlspecialchars($book['title']); ?></h3>
                         <div class="book-meta">
+                            <p><strong>Book ID:</strong> <span class="book-id"><?php echo htmlspecialchars($book['book_id']); ?></span></p>
+                            <p><strong>Copy #:</strong> <?php echo htmlspecialchars($book['copy_number']); ?></p>
                             <p><strong>Author:</strong> <?php echo htmlspecialchars($book['author'] ?? 'Unknown'); ?></p>
                             <p><strong>Category:</strong> <?php echo htmlspecialchars($book['category'] ?? 'General'); ?></p>
-                            <p><strong>Published:</strong> <?php echo htmlspecialchars($book['published_year'] ?? 'N/A'); ?></p>
+                            <p><strong>Published:</strong> <?php echo htmlspecialchars($published_date); ?></p>
+                            <?php if ($book['condition_status']): ?>
+                                <p><strong>Condition:</strong> <?php echo htmlspecialchars($book['condition_status']); ?></p>
+                            <?php endif; ?>
                         </div>
                         <div class="borrow-info">
                             <div class="borrow-details">
-                                <p><strong>Date Borrowed:</strong> <?php echo date('n/j/y', strtotime($book['borrow_date'])); ?></p>
-                                <p><strong>Return Book By:</strong> <?php echo date('n/j/y', strtotime($book['due_date'])); ?></p>
+                                <p><strong>Date Borrowed:</strong> <?php echo date('M j, Y', strtotime($book['borrow_date'])); ?></p>
+                                <p><strong>Return Book By:</strong> <?php echo date('M j, Y', strtotime($book['due_date'])); ?></p>
+                                <?php if ($book['renewal_count'] > 0): ?>
+                                    <p><strong>Renewals:</strong> <?php echo $book['renewal_count']; ?> time<?php echo $book['renewal_count'] > 1 ? 's' : ''; ?></p>
+                                <?php endif; ?>
                                 <p class="status <?php echo $status_info['class']; ?>">
                                     <strong>Status:</strong> <?php echo $status_info['text']; ?>
+                                    <?php if ($days_remaining >= 0): ?>
+                                        (<?php echo $days_remaining; ?> day<?php echo $days_remaining != 1 ? 's' : ''; ?> left)
+                                    <?php else: ?>
+                                        (<?php echo abs($days_remaining); ?> day<?php echo abs($days_remaining) != 1 ? 's' : ''; ?> overdue)
+                                    <?php endif; ?>
                                 </p>
+                                <?php if ($book['fine_amount'] > 0): ?>
+                                    <p class="fine-amount"><strong>Fine:</strong> ₱<?php echo number_format($book['fine_amount'], 2); ?></p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
                 </div>
             <?php endforeach; ?>
+        </div>
+        
+        <div class="borrowing-info">
+            <h4>Borrowing Policy Reminder:</h4>
+            <ul>
+                <li>Maximum 2 books can be borrowed at a time</li>
+                <li>Books are due 7 days after borrowing</li>
+                <li>₱10.00 fine per day for each overdue book</li>
+                <li>Books can be renewed once if no one else is waiting</li>
+                <li>Please return books in good condition</li>
+            </ul>
         </div>
     <?php endif; ?>
 </section>

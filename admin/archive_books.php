@@ -17,32 +17,50 @@ $message = '';
 $message_type = '';
 $errors = [];
 
-// Handle archive book action
-if (isset($_POST['archive_book']) && isset($_POST['book_id'])) {
+// Handle archive book action (updated for new structure)
+if (isset($_POST['archive_book']) && isset($_POST['title_id'])) {
     try {
-        $book_id = intval($_POST['book_id']);
+        $title_id = intval($_POST['title_id']);
         
-        // Check if book is currently borrowed
-        $borrowCheck = $conn->prepare("SELECT COUNT(*) as count FROM borrowed_books WHERE book_id = ? AND status = 'borrowed'");
-        $borrowCheck->execute([$book_id]);
+        // Check if any copies are currently borrowed
+        $borrowCheck = $conn->prepare("
+            SELECT COUNT(*) as count 
+            FROM borrowed_books bb 
+            WHERE bb.title_id = ? AND bb.status IN ('borrowed', 'overdue', 'renewed')
+        ");
+        $borrowCheck->execute([$title_id]);
         $borrowed = $borrowCheck->fetch()['count'];
         
         if ($borrowed > 0) {
-            $message = "Cannot archive book. It is currently borrowed.";
+            $message = "Cannot archive book. One or more copies are currently borrowed.";
             $message_type = "error";
         } else {
             // Get book title for confirmation message
-            $bookStmt = $conn->prepare("SELECT title FROM books WHERE book_id = ?");
-            $bookStmt->execute([$book_id]);
+            $bookStmt = $conn->prepare("SELECT title FROM book_titles WHERE title_id = ?");
+            $bookStmt->execute([$title_id]);
             $book = $bookStmt->fetch();
             
             if ($book) {
-                // Archive the book
-                $archiveStmt = $conn->prepare("UPDATE books SET status = 'Archived' WHERE book_id = ?");
-                if ($archiveStmt->execute([$book_id])) {
-                    $message = "Book '{$book['title']}' archived successfully!";
+                $conn->beginTransaction();
+                
+                // Archive all copies of this book
+                $archiveCopiesStmt = $conn->prepare("UPDATE book_copies SET status = 'Archived' WHERE title_id = ?");
+                $archiveCopiesResult = $archiveCopiesStmt->execute([$title_id]);
+                
+                // Archive the book title and set available_copies to 0
+                $archiveTitleStmt = $conn->prepare("
+                    UPDATE book_titles 
+                    SET status = 'Archived', available_copies = 0 
+                    WHERE title_id = ?
+                ");
+                $archiveTitleResult = $archiveTitleStmt->execute([$title_id]);
+                
+                if ($archiveCopiesResult && $archiveTitleResult) {
+                    $conn->commit();
+                    $message = "Book '{$book['title']}' and all its copies archived successfully!";
                     $message_type = "success";
                 } else {
+                    $conn->rollback();
                     $message = "Failed to archive book.";
                     $message_type = "error";
                 }
@@ -52,28 +70,43 @@ if (isset($_POST['archive_book']) && isset($_POST['book_id'])) {
             }
         }
     } catch (PDOException $e) {
+        $conn->rollback();
         $message = "Error: " . $e->getMessage();
         $message_type = "error";
     }
 }
 
-// Handle restore book action
-if (isset($_POST['restore_book']) && isset($_POST['book_id'])) {
+// Handle restore book action (updated for new structure)
+if (isset($_POST['restore_book']) && isset($_POST['title_id'])) {
     try {
-        $book_id = intval($_POST['book_id']);
+        $title_id = intval($_POST['title_id']);
         
         // Get book title for confirmation message
-        $bookStmt = $conn->prepare("SELECT title FROM books WHERE book_id = ?");
-        $bookStmt->execute([$book_id]);
+        $bookStmt = $conn->prepare("SELECT title, total_copies FROM book_titles WHERE title_id = ?");
+        $bookStmt->execute([$title_id]);
         $book = $bookStmt->fetch();
         
         if ($book) {
-            // Restore the book
-            $restoreStmt = $conn->prepare("UPDATE books SET status = 'Available' WHERE book_id = ?");
-            if ($restoreStmt->execute([$book_id])) {
-                $message = "Book '{$book['title']}' restored successfully!";
+            $conn->beginTransaction();
+            
+            // Restore all copies of this book
+            $restoreCopiesStmt = $conn->prepare("UPDATE book_copies SET status = 'Available' WHERE title_id = ?");
+            $restoreCopiesResult = $restoreCopiesStmt->execute([$title_id]);
+            
+            // Restore the book title and set available_copies to total_copies
+            $restoreTitleStmt = $conn->prepare("
+                UPDATE book_titles 
+                SET status = 'Available', available_copies = total_copies 
+                WHERE title_id = ?
+            ");
+            $restoreTitleResult = $restoreTitleStmt->execute([$title_id]);
+            
+            if ($restoreCopiesResult && $restoreTitleResult) {
+                $conn->commit();
+                $message = "Book '{$book['title']}' and all its copies restored successfully!";
                 $message_type = "success";
             } else {
+                $conn->rollback();
                 $message = "Failed to restore book.";
                 $message_type = "error";
             }
@@ -82,33 +115,44 @@ if (isset($_POST['restore_book']) && isset($_POST['book_id'])) {
             $message_type = "error";
         }
     } catch (PDOException $e) {
+        $conn->rollback();
         $message = "Error: " . $e->getMessage();
         $message_type = "error";
     }
 }
 
-// Handle permanent delete action
-if (isset($_POST['permanent_delete']) && isset($_POST['book_id'])) {
+// Handle permanent delete action (updated for new structure)
+if (isset($_POST['permanent_delete']) && isset($_POST['title_id'])) {
     try {
-        $book_id = intval($_POST['book_id']);
+        $title_id = intval($_POST['title_id']);
         
-        // Get book title for confirmation message
-        $bookStmt = $conn->prepare("SELECT title, book_image FROM books WHERE book_id = ?");
-        $bookStmt->execute([$book_id]);
+        // Get book title and image for confirmation message
+        $bookStmt = $conn->prepare("SELECT title, book_image FROM book_titles WHERE title_id = ?");
+        $bookStmt->execute([$title_id]);
         $book = $bookStmt->fetch();
         
         if ($book) {
+            $conn->beginTransaction();
+            
             // Delete book image if exists
-            if ($book['book_image'] && file_exists('../uploads/book_images/' . $book['book_image'])) {
-                unlink('../uploads/book_images/' . $book['book_image']);
+            if ($book['book_image'] && file_exists('../uploads/book-images/' . $book['book_image'])) {
+                unlink('../uploads/book-images/' . $book['book_image']);
             }
             
-            // Permanently delete the book
-            $deleteStmt = $conn->prepare("DELETE FROM books WHERE book_id = ?");
-            if ($deleteStmt->execute([$book_id])) {
-                $message = "Book '{$book['title']}' permanently deleted!";
+            // Delete all copies first (due to foreign key constraints)
+            $deleteCopiesStmt = $conn->prepare("DELETE FROM book_copies WHERE title_id = ?");
+            $deleteCopiesResult = $deleteCopiesStmt->execute([$title_id]);
+            
+            // Delete the book title
+            $deleteTitleStmt = $conn->prepare("DELETE FROM book_titles WHERE title_id = ?");
+            $deleteTitleResult = $deleteTitleStmt->execute([$title_id]);
+            
+            if ($deleteCopiesResult && $deleteTitleResult) {
+                $conn->commit();
+                $message = "Book '{$book['title']}' and all its copies permanently deleted!";
                 $message_type = "success";
             } else {
+                $conn->rollback();
                 $message = "Failed to delete book.";
                 $message_type = "error";
             }
@@ -117,6 +161,7 @@ if (isset($_POST['permanent_delete']) && isset($_POST['book_id'])) {
             $message_type = "error";
         }
     } catch (PDOException $e) {
+        $conn->rollback();
         $message = "Error: " . $e->getMessage();
         $message_type = "error";
     }
@@ -129,16 +174,16 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'available'; // available, archiv
 $sort_by = isset($_GET['sort']) ? $_GET['sort'] : 'created_at';
 $sort_order = isset($_GET['order']) ? $_GET['order'] : 'DESC';
 
-// Build the query based on view
+// Build the query based on view (updated for new structure)
 $where_conditions = [];
 $params = [];
 
 switch ($view) {
     case 'archived':
-        $where_conditions[] = "status = 'Archived'";
+        $where_conditions[] = "bt.status = 'Archived'";
         break;
     case 'available':
-        $where_conditions[] = "status IN ('Available', 'Borrowed')";
+        $where_conditions[] = "bt.status IN ('Available', 'Borrowed')";
         break;
     case 'all':
         // No status filter for all
@@ -146,20 +191,20 @@ switch ($view) {
 }
 
 if (!empty($search)) {
-    $where_conditions[] = "(title LIKE ? OR author LIKE ?)";
+    $where_conditions[] = "(bt.title LIKE ? OR bt.author LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
 }
 
 if (!empty($category_filter)) {
-    $where_conditions[] = "category = ?";
+    $where_conditions[] = "bt.category = ?";
     $params[] = $category_filter;
 }
 
 $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
 
-// Valid sort columns
-$valid_sorts = ['title', 'author', 'category', 'published_year', 'status', 'created_at'];
+// Valid sort columns for new structure
+$valid_sorts = ['title', 'author', 'category', 'published_year', 'total_copies', 'available_copies', 'status', 'created_at'];
 if (!in_array($sort_by, $valid_sorts)) {
     $sort_by = 'created_at';
 }
@@ -170,32 +215,48 @@ if (!in_array(strtoupper($sort_order), $valid_orders)) {
 }
 
 try {
-    // Get books based on current view
-    $query = "SELECT * FROM books $where_clause ORDER BY $sort_by $sort_order";
+    // Get books based on current view (updated query for new structure)
+    $query = "
+        SELECT 
+            bt.*,
+            CASE 
+                WHEN bt.available_copies > 0 THEN 'Available'
+                WHEN bt.available_copies = 0 AND bt.total_copies > 0 AND bt.status != 'Archived' THEN 'Borrowed'
+                ELSE bt.status
+            END as display_status,
+            GROUP_CONCAT(bc.book_id ORDER BY bc.copy_number SEPARATOR ', ') as sample_book_ids
+        FROM book_titles bt
+        LEFT JOIN book_copies bc ON bt.title_id = bc.title_id
+        $where_clause
+        GROUP BY bt.title_id
+        ORDER BY bt.$sort_by $sort_order
+    ";
     $stmt = $conn->prepare($query);
     $stmt->execute($params);
     $books = $stmt->fetchAll();
 
-    // Get statistics
+    // Get statistics (updated for new structure)
     $statsQuery = "
         SELECT 
-            COUNT(CASE WHEN status IN ('Available', 'Borrowed') THEN 1 END) as active_books,
-            COUNT(CASE WHEN status = 'Archived' THEN 1 END) as archived_books,
-            COUNT(CASE WHEN status = 'Available' THEN 1 END) as available_books,
-            COUNT(CASE WHEN status = 'Borrowed' THEN 1 END) as borrowed_books
-        FROM books
+            COUNT(CASE WHEN bt.status IN ('Available', 'Borrowed') THEN 1 END) as active_books,
+            COUNT(CASE WHEN bt.status = 'Archived' THEN 1 END) as archived_books,
+            COUNT(CASE WHEN bt.available_copies > 0 THEN 1 END) as available_books,
+            COUNT(CASE WHEN bt.available_copies = 0 AND bt.total_copies > 0 AND bt.status != 'Archived' THEN 1 END) as borrowed_books,
+            SUM(CASE WHEN bt.status = 'Archived' THEN bt.total_copies ELSE 0 END) as archived_copies,
+            SUM(CASE WHEN bt.status IN ('Available', 'Borrowed') THEN bt.total_copies ELSE 0 END) as active_copies
+        FROM book_titles bt
     ";
     $stats = $conn->query($statsQuery)->fetch();
 
     // Get categories for filter dropdown
-    $categoryStmt = $conn->prepare("SELECT DISTINCT category FROM books WHERE category IS NOT NULL AND category != '' ORDER BY category");
+    $categoryStmt = $conn->prepare("SELECT DISTINCT category FROM book_titles WHERE category IS NOT NULL AND category != '' ORDER BY category");
     $categoryStmt->execute();
     $categories = $categoryStmt->fetchAll();
 
 } catch (PDOException $e) {
     $books = [];
     $categories = [];
-    $stats = ['active_books' => 0, 'archived_books' => 0, 'available_books' => 0, 'borrowed_books' => 0];
+    $stats = ['active_books' => 0, 'archived_books' => 0, 'available_books' => 0, 'borrowed_books' => 0, 'archived_copies' => 0, 'active_copies' => 0];
     $error_message = "Database error: " . $e->getMessage();
 }
 
@@ -233,12 +294,24 @@ function buildUrl($newParams = []) {
     <link rel="stylesheet" href="../assets/css/admin_archive_books.css">
     <?php include '../includes/favicon.php'; ?>
     <style>
-        .book-code {
+        .book-copies {
             font-size: 0.8rem;
             color: #666;
             margin-bottom: 0.5rem;
             font-weight: 600;
-            letter-spacing: 0.5px;
+        }
+        
+        .available-copies {
+            color: #28a745;
+        }
+        
+        .sample-ids {
+            font-size: 0.7rem;
+            color: #888;
+            font-family: 'Courier New', monospace;
+            margin-top: 0.3rem;
+            word-break: break-all;
+            line-height: 1.2;
         }
     </style>
 
@@ -285,19 +358,19 @@ function buildUrl($newParams = []) {
             <div class="stats-row">
                 <div class="stat-card-small">
                     <div class="stat-number-small"><?php echo $stats['active_books']; ?></div>
-                    <div class="stat-label">Active Books</div>
+                    <div class="stat-label">Active Titles</div>
                 </div>
                 <div class="stat-card-small">
                     <div class="stat-number-small"><?php echo $stats['archived_books']; ?></div>
-                    <div class="stat-label">Archived Books</div>
+                    <div class="stat-label">Archived Titles</div>
                 </div>
                 <div class="stat-card-small">
-                    <div class="stat-number-small"><?php echo $stats['available_books']; ?></div>
-                    <div class="stat-label">Available Books</div>
+                    <div class="stat-number-small"><?php echo $stats['active_copies']; ?></div>
+                    <div class="stat-label">Active Copies</div>
                 </div>
                 <div class="stat-card-small">
-                    <div class="stat-number-small"><?php echo $stats['borrowed_books']; ?></div>
-                    <div class="stat-label">Currently Borrowed</div>
+                    <div class="stat-number-small"><?php echo $stats['archived_copies']; ?></div>
+                    <div class="stat-label">Archived Copies</div>
                 </div>
             </div>
 
@@ -321,7 +394,7 @@ function buildUrl($newParams = []) {
             <!-- Archive Notice -->
             <?php if ($view === 'archived'): ?>
                 <div class="archive-notice">
-                    📦 <strong>Archive View:</strong> These books are archived and not available for borrowing. You can restore them to make them available again or permanently delete them.
+                    📦 <strong>Archive View:</strong> These book titles and all their copies are archived and not available for borrowing. You can restore them to make them available again or permanently delete them.
                 </div>
             <?php endif; ?>
 
@@ -329,11 +402,11 @@ function buildUrl($newParams = []) {
             <div class="view-tabs">
                 <a href="<?php echo buildUrl(['view' => 'available']); ?>" 
                    class="view-tab <?php echo $view === 'available' ? 'active' : ''; ?>">
-                    📚 Active Books (<?php echo $stats['active_books']; ?>)
+                    📚 Active Books (<?php echo $stats['active_books']; ?> titles)
                 </a>
                 <a href="<?php echo buildUrl(['view' => 'archived']); ?>" 
                    class="view-tab <?php echo $view === 'archived' ? 'active' : ''; ?>">
-                    📦 Archived Books (<?php echo $stats['archived_books']; ?>)
+                    📦 Archived Books (<?php echo $stats['archived_books']; ?> titles)
                 </a>
                 <a href="<?php echo buildUrl(['view' => 'all']); ?>" 
                    class="view-tab <?php echo $view === 'all' ? 'active' : ''; ?>">
@@ -379,15 +452,15 @@ function buildUrl($newParams = []) {
                     <div>
                         <h2>
                             <?php if ($view === 'archived'): ?>
-                                📦 Archived Books (<?php echo count($books); ?> books)
+                                📦 Archived Books (<?php echo count($books); ?> titles)
                             <?php elseif ($view === 'available'): ?>
-                                📚 Active Books (<?php echo count($books); ?> books)
+                                📚 Active Books (<?php echo count($books); ?> titles)
                             <?php else: ?>
-                                📋 All Books (<?php echo count($books); ?> books)
+                                📋 All Books (<?php echo count($books); ?> titles)
                             <?php endif; ?>
                         </h2>
                     </div>
-                    <a href="?" class="action-btn" style="background: white; color: var(--orange);">
+                    <a href="?" class="action-btn" style="background: var(--caramel); color: var(--white);">
                         🔄 Clear Filters
                     </a>
                 </div>
@@ -401,6 +474,10 @@ function buildUrl($newParams = []) {
                 <?php else: ?>
                     <div class="books-grid">
                         <?php foreach ($books as $book): ?>
+                            <?php
+                            $sample_ids = explode(', ', $book['sample_book_ids'] ?? '');
+                            $display_ids = array_slice($sample_ids, 0, 2); // Show first 2 IDs
+                            ?>
                             <div class="book-card <?php echo $book['status'] === 'Archived' ? 'archived' : ''; ?>">
                                 <div class="book-image">
                                     <?php if (!empty($book['book_image'])): ?>
@@ -413,7 +490,14 @@ function buildUrl($newParams = []) {
                                 </div>
                                 
                                 <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
-                                <div class="book-code">ID: <?php echo htmlspecialchars($book['book_code'] ?? 'N/A'); ?></div>
+                                <div class="book-copies">
+                                    <?php if ($book['status'] === 'Archived'): ?>
+                                        <?php echo $book['total_copies']; ?> copies (archived)
+                                    <?php else: ?>
+                                        <span class="available-copies"><?php echo $book['available_copies']; ?> available</span> 
+                                        / <?php echo $book['total_copies']; ?> total
+                                    <?php endif; ?>
+                                </div>
                                 <div class="book-author">by <?php echo htmlspecialchars($book['author'] ?? 'Unknown Author'); ?></div>
                                 
                                 <div class="book-meta">
@@ -421,9 +505,19 @@ function buildUrl($newParams = []) {
                                     <span class="book-year"><?php echo $book['published_year'] ?? 'N/A'; ?></span>
                                 </div>
                                 
+                                <?php if (!empty($book['sample_book_ids'])): ?>
+                                    <div class="sample-ids">
+                                        Sample IDs: <?php echo htmlspecialchars(implode(', ', $display_ids)); ?>
+                                        <?php if (count($sample_ids) > 2): ?>
+                                            ... (+<?php echo count($sample_ids) - 2; ?> more)
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                                <br>
+                                
                                 <div style="margin-bottom: 1rem;">
-                                    <span class="status-badge <?php echo getStatusBadgeClass($book['status']); ?>">
-                                        <?php echo ucfirst($book['status']); ?>
+                                    <span class="status-badge <?php echo getStatusBadgeClass($book['display_status']); ?>">
+                                        <?php echo ucfirst($book['display_status']); ?>
                                     </span>
                                 </div>
                                 
@@ -431,36 +525,36 @@ function buildUrl($newParams = []) {
                                     <?php if ($book['status'] === 'Archived'): ?>
                                         <!-- Archived book actions -->
                                         <form method="POST" style="display: inline;" 
-                                              onsubmit="return confirm('Restore this book to active status?');">
-                                            <input type="hidden" name="book_id" value="<?php echo $book['book_id']; ?>">
+                                              onsubmit="return confirm('Restore this book and all its copies to active status?');">
+                                            <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                             <button type="submit" name="restore_book" class="btn-restore">
                                                 🔄 Restore
                                             </button>
                                         </form>
                                         
                                         <form method="POST" style="display: inline;" 
-                                              onsubmit="return confirm('PERMANENTLY delete this book? This cannot be undone!');">
-                                            <input type="hidden" name="book_id" value="<?php echo $book['book_id']; ?>">
+                                              onsubmit="return confirm('PERMANENTLY delete this book and all its copies? This cannot be undone!');">
+                                            <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                             <button type="submit" name="permanent_delete" class="btn-delete">
                                                 🗑️ Delete
                                             </button>
                                         </form>
                                     <?php else: ?>
                                         <!-- Active book actions -->
-                                        <a href="edit_book.php?id=<?php echo $book['book_id']; ?>" class="btn-edit">
+                                        <a href="edit_book.php?id=<?php echo $book['title_id']; ?>" class="btn-edit">
                                             ✏️ Edit
                                         </a>
                                         
-                                        <?php if ($book['status'] !== 'Borrowed'): ?>
+                                        <?php if ($book['available_copies'] == $book['total_copies']): ?>
                                             <form method="POST" style="display: inline;" 
-                                                  onsubmit="return confirm('Archive this book? It will no longer be available for borrowing.');">
-                                                <input type="hidden" name="book_id" value="<?php echo $book['book_id']; ?>">
+                                                  onsubmit="return confirm('Archive this book and all its copies? They will no longer be available for borrowing.');">
+                                                <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                                 <button type="submit" name="archive_book" class="btn-archive">
                                                     📦 Archive
                                                 </button>
                                             </form>
                                         <?php else: ?>
-                                            <span style="color: #999; font-size: 0.9rem;">Cannot archive - Currently borrowed</span>
+                                            <span style="color: #999; font-size: 0.9rem;">Cannot archive - Some copies borrowed</span>
                                         <?php endif; ?>
                                     <?php endif; ?>
                                 </div>

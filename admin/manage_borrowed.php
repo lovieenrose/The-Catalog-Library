@@ -17,44 +17,58 @@ $message = '';
 $message_type = '';
 $errors = [];
 
-// Handle return book action
+// Handle return book action (updated for new structure)
 if (isset($_POST['return_book']) && isset($_POST['borrow_id'])) {
     try {
         $borrow_id = intval($_POST['borrow_id']);
         
-        // Get book details for updating book status
-        $bookQuery = $conn->prepare("
-            SELECT bb.book_id, b.title 
+        // Get borrow details for updating copy status
+        $borrowQuery = $conn->prepare("
+            SELECT bb.copy_id, bb.title_id, bt.title, bc.book_id
             FROM borrowed_books bb 
-            JOIN books b ON bb.book_id = b.book_id 
-            WHERE bb.id = ? AND bb.status = 'borrowed'
+            JOIN book_titles bt ON bb.title_id = bt.title_id 
+            JOIN book_copies bc ON bb.copy_id = bc.copy_id
+            WHERE bb.id = ? AND bb.status IN ('borrowed', 'overdue', 'renewed')
         ");
-        $bookQuery->execute([$borrow_id]);
-        $bookData = $bookQuery->fetch();
+        $borrowQuery->execute([$borrow_id]);
+        $borrowData = $borrowQuery->fetch();
         
-        if ($bookData) {
+        if ($borrowData) {
+            $conn->beginTransaction();
+            
             // Update borrowed_books table
             $returnStmt = $conn->prepare("
                 UPDATE borrowed_books 
                 SET return_date = CURDATE(), status = 'returned' 
-                WHERE id = ? AND status = 'borrowed'
+                WHERE id = ? AND status IN ('borrowed', 'overdue', 'renewed')
             ");
             
-            // Update books table status
-            $bookStatusStmt = $conn->prepare("
-                UPDATE books 
+            // Update specific copy status
+            $copyStatusStmt = $conn->prepare("
+                UPDATE book_copies 
                 SET status = 'Available' 
-                WHERE book_id = ?
+                WHERE copy_id = ?
             ");
             
-            // Execute both updates
-            $conn->beginTransaction();
-            $returnResult = $returnStmt->execute([$borrow_id]);
-            $bookResult = $bookStatusStmt->execute([$bookData['book_id']]);
+            // Update book_titles available_copies count
+            $updateAvailableStmt = $conn->prepare("
+                UPDATE book_titles 
+                SET available_copies = available_copies + 1,
+                    status = CASE 
+                        WHEN available_copies + 1 > 0 THEN 'Available' 
+                        ELSE status 
+                    END
+                WHERE title_id = ?
+            ");
             
-            if ($returnResult && $bookResult) {
+            // Execute all updates
+            $returnResult = $returnStmt->execute([$borrow_id]);
+            $copyResult = $copyStatusStmt->execute([$borrowData['copy_id']]);
+            $titleResult = $updateAvailableStmt->execute([$borrowData['title_id']]);
+            
+            if ($returnResult && $copyResult && $titleResult) {
                 $conn->commit();
-                $message = "Book '{$bookData['title']}' returned successfully!";
+                $message = "Book '{$borrowData['title']}' (Copy: {$borrowData['book_id']}) returned successfully!";
                 $message_type = "success";
             } else {
                 $conn->rollback();
@@ -73,22 +87,22 @@ if (isset($_POST['return_book']) && isset($_POST['borrow_id'])) {
     }
 }
 
-// Handle new borrowing
+// Handle new borrowing (updated for new structure)
 if (isset($_POST['borrow_book'])) {
     $user_id = intval($_POST['user_id']);
-    $book_id = intval($_POST['book_id']);
+    $title_id = intval($_POST['title_id']);
     $due_days = 7; // Fixed 7 days borrowing period
     
     try {
-        // Check if book is available
-        $bookCheck = $conn->prepare("SELECT status, title FROM books WHERE book_id = ?");
-        $bookCheck->execute([$book_id]);
-        $book = $bookCheck->fetch();
+        // Check if book title has available copies
+        $titleCheck = $conn->prepare("SELECT title, available_copies FROM book_titles WHERE title_id = ?");
+        $titleCheck->execute([$title_id]);
+        $title = $titleCheck->fetch();
         
-        if (!$book) {
+        if (!$title) {
             $errors[] = "Book not found.";
-        } elseif ($book['status'] !== 'Available') {
-            $errors[] = "Book is not available for borrowing.";
+        } elseif ($title['available_copies'] <= 0) {
+            $errors[] = "No copies of this book are currently available for borrowing.";
         } else {
             // Check if user exists
             $userCheck = $conn->prepare("SELECT user_id, first_name, last_name FROM users WHERE user_id = ?");
@@ -98,31 +112,80 @@ if (isset($_POST['borrow_book'])) {
             if (!$user) {
                 $errors[] = "User not found.";
             } else {
-                // Process borrowing with fixed 7-day period
-                $borrow_date = date('Y-m-d');
-                $due_date = date('Y-m-d', strtotime("+$due_days days"));
-                
-                $conn->beginTransaction();
-                
-                // Insert borrow record
-                $borrowStmt = $conn->prepare("
-                    INSERT INTO borrowed_books (user_id, book_id, borrow_date, due_date, status) 
-                    VALUES (?, ?, ?, ?, 'borrowed')
+                // Check if user already has this title borrowed
+                $existingBorrowCheck = $conn->prepare("
+                    SELECT id FROM borrowed_books 
+                    WHERE user_id = ? AND title_id = ? AND status IN ('borrowed', 'overdue', 'renewed')
                 ");
-                
-                // Update book status
-                $updateBookStmt = $conn->prepare("UPDATE books SET status = 'Borrowed' WHERE book_id = ?");
-                
-                $borrowResult = $borrowStmt->execute([$user_id, $book_id, $borrow_date, $due_date]);
-                $updateResult = $updateBookStmt->execute([$book_id]);
-                
-                if ($borrowResult && $updateResult) {
-                    $conn->commit();
-                    $message = "Book '{$book['title']}' borrowed by {$user['first_name']} {$user['last_name']} successfully! Due date: " . date('M j, Y', strtotime($due_date));
-                    $message_type = "success";
+                $existingBorrowCheck->execute([$user_id, $title_id]);
+                if ($existingBorrowCheck->fetch()) {
+                    $errors[] = "User already has this book borrowed.";
                 } else {
-                    $conn->rollback();
-                    $errors[] = "Failed to process borrowing.";
+                    // Check user's borrowing limit (2 books max)
+                    $borrowCountCheck = $conn->prepare("
+                        SELECT COUNT(*) as count FROM borrowed_books 
+                        WHERE user_id = ? AND status IN ('borrowed', 'overdue', 'renewed')
+                    ");
+                    $borrowCountCheck->execute([$user_id]);
+                    $borrowCount = $borrowCountCheck->fetch()['count'];
+                    
+                    if ($borrowCount >= 2) {
+                        $errors[] = "User has reached the maximum borrowing limit of 2 books.";
+                    } else {
+                        // Find an available copy to assign
+                        $copyQuery = $conn->prepare("
+                            SELECT copy_id, book_id, copy_number 
+                            FROM book_copies 
+                            WHERE title_id = ? AND status = 'Available' 
+                            ORDER BY copy_number ASC 
+                            LIMIT 1
+                        ");
+                        $copyQuery->execute([$title_id]);
+                        $availableCopy = $copyQuery->fetch();
+                        
+                        if (!$availableCopy) {
+                            $errors[] = "No available copies found for assignment.";
+                        } else {
+                            // Process borrowing
+                            $borrow_date = date('Y-m-d');
+                            $due_date = date('Y-m-d', strtotime("+$due_days days"));
+                            
+                            $conn->beginTransaction();
+                            
+                            // Insert borrow record
+                            $borrowStmt = $conn->prepare("
+                                INSERT INTO borrowed_books (user_id, copy_id, title_id, book_id, borrow_date, due_date, status) 
+                                VALUES (?, ?, ?, ?, ?, ?, 'borrowed')
+                            ");
+                            
+                            // Update copy status
+                            $updateCopyStmt = $conn->prepare("UPDATE book_copies SET status = 'Borrowed' WHERE copy_id = ?");
+                            
+                            // Update title available_copies count
+                            $updateTitleStmt = $conn->prepare("
+                                UPDATE book_titles 
+                                SET available_copies = available_copies - 1,
+                                    status = CASE 
+                                        WHEN available_copies - 1 <= 0 THEN 'Borrowed' 
+                                        ELSE 'Available' 
+                                    END
+                                WHERE title_id = ?
+                            ");
+                            
+                            $borrowResult = $borrowStmt->execute([$user_id, $availableCopy['copy_id'], $title_id, $availableCopy['book_id'], $borrow_date, $due_date]);
+                            $copyUpdateResult = $updateCopyStmt->execute([$availableCopy['copy_id']]);
+                            $titleUpdateResult = $updateTitleStmt->execute([$title_id]);
+                            
+                            if ($borrowResult && $copyUpdateResult && $titleUpdateResult) {
+                                $conn->commit();
+                                $message = "Book '{$title['title']}' (Copy #{$availableCopy['copy_number']}: {$availableCopy['book_id']}) borrowed by {$user['first_name']} {$user['last_name']} successfully! Due date: " . date('M j, Y', strtotime($due_date));
+                                $message_type = "success";
+                            } else {
+                                $conn->rollback();
+                                $errors[] = "Failed to process borrowing.";
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -142,68 +205,83 @@ $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 $overdue_filter = isset($_GET['overdue']) ? $_GET['overdue'] : '';
 
-// Build query for borrowed books
+// Build query for borrowed books (updated for new structure)
 $where_conditions = ["1=1"];
 $params = [];
 
 if (!empty($search)) {
-    $where_conditions[] = "(b.title LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
+    $where_conditions[] = "(bt.title LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ? OR bc.book_id LIKE ?)";
     $search_param = "%$search%";
     $params[] = $search_param;
     $params[] = $search_param;
     $params[] = $search_param;
     $params[] = $search_param;
+    $params[] = $search_param;
 }
 
+// Fixed status filtering logic
 if (!empty($status_filter)) {
-    $where_conditions[] = "bb.status = ?";
-    $params[] = $status_filter;
+    if ($status_filter === 'currently_borrowed') {
+        $where_conditions[] = "bb.status IN ('borrowed', 'overdue', 'renewed')";
+    } elseif ($status_filter === 'overdue') {
+        $where_conditions[] = "bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE()";
+    } else {
+        $where_conditions[] = "bb.status = ?";
+        $params[] = $status_filter;
+    }
 }
 
 if ($overdue_filter === 'yes') {
-    $where_conditions[] = "bb.due_date < CURDATE() AND bb.status = 'borrowed'";
+    $where_conditions[] = "bb.due_date < CURDATE() AND bb.status IN ('borrowed', 'overdue', 'renewed')";
 }
 
 $where_clause = implode(" AND ", $where_conditions);
 
 try {
-    // Get borrowed books with user and book details
+    // Get borrowed books with user and book details (updated query)
     $query = "
         SELECT 
             bb.id,
             bb.user_id,
+            bb.copy_id,
+            bb.title_id,
             bb.book_id,
             bb.borrow_date,
             bb.due_date,
             bb.return_date,
             bb.status,
+            bb.renewal_count,
+            bb.fine_amount,
             u.first_name,
             u.last_name,
             u.username,
             u.email,
-            b.title,
-            b.author,
-            b.category,
+            bt.title,
+            bt.author,
+            bt.category,
+            bc.copy_number,
+            bc.condition_status,
             CASE 
-                WHEN bb.status = 'borrowed' AND bb.due_date < CURDATE() THEN 'overdue'
+                WHEN bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE() THEN 'overdue'
                 ELSE bb.status
             END as display_status,
             CASE
-                WHEN bb.status = 'borrowed' AND bb.due_date < CURDATE() THEN DATEDIFF(CURDATE(), bb.due_date)
+                WHEN bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE() THEN DATEDIFF(CURDATE(), bb.due_date)
                 WHEN bb.status = 'returned' AND bb.return_date > bb.due_date THEN DATEDIFF(bb.return_date, bb.due_date)
                 ELSE 0
             END as days_overdue,
             CASE
-                WHEN bb.status = 'borrowed' AND bb.due_date < CURDATE() THEN DATEDIFF(CURDATE(), bb.due_date) * 10
+                WHEN bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE() THEN DATEDIFF(CURDATE(), bb.due_date) * 10
                 WHEN bb.status = 'returned' AND bb.return_date > bb.due_date THEN DATEDIFF(bb.return_date, bb.due_date) * 10
                 ELSE 0
-            END as fine_amount
+            END as calculated_fine
         FROM borrowed_books bb
         JOIN users u ON bb.user_id = u.user_id
-        JOIN books b ON bb.book_id = b.book_id
+        JOIN book_titles bt ON bb.title_id = bt.title_id
+        JOIN book_copies bc ON bb.copy_id = bc.copy_id
         WHERE $where_clause
         ORDER BY 
-            CASE WHEN bb.status = 'borrowed' AND bb.due_date < CURDATE() THEN 1 ELSE 2 END,
+            CASE WHEN bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE() THEN 1 ELSE 2 END,
             bb.borrow_date DESC
     ";
     
@@ -211,27 +289,32 @@ try {
     $stmt->execute($params);
     $borrowed_books = $stmt->fetchAll();
     
-    // Get available books for new borrowing
-    $availableBooksQuery = "SELECT book_id, title, author FROM books WHERE status = 'Available' ORDER BY title";
-    $availableBooks = $conn->query($availableBooksQuery)->fetchAll();
+    // Get available book titles for new borrowing
+    $availableTitlesQuery = "
+        SELECT bt.title_id, bt.title, bt.author, bt.available_copies 
+        FROM book_titles bt 
+        WHERE bt.available_copies > 0 AND bt.status = 'Available' 
+        ORDER BY bt.title
+    ";
+    $availableTitles = $conn->query($availableTitlesQuery)->fetchAll();
     
     // Get users for borrowing
     $usersQuery = "SELECT user_id, username, first_name, last_name FROM users ORDER BY first_name, last_name";
     $users = $conn->query($usersQuery)->fetchAll();
     
-    // Get statistics
+    // Get statistics (updated for new structure)
     $statsQuery = "
         SELECT 
-            COUNT(CASE WHEN status = 'borrowed' THEN 1 END) as currently_borrowed,
-            COUNT(CASE WHEN status = 'returned' THEN 1 END) as total_returned,
-            COUNT(CASE WHEN status = 'borrowed' AND due_date < CURDATE() THEN 1 END) as overdue_count
-        FROM borrowed_books
+            COUNT(CASE WHEN bb.status IN ('borrowed', 'overdue', 'renewed') THEN 1 END) as currently_borrowed,
+            COUNT(CASE WHEN bb.status = 'returned' THEN 1 END) as total_returned,
+            COUNT(CASE WHEN bb.status IN ('borrowed', 'overdue', 'renewed') AND bb.due_date < CURDATE() THEN 1 END) as overdue_count
+        FROM borrowed_books bb
     ";
     $stats = $conn->query($statsQuery)->fetch();
     
 } catch (PDOException $e) {
     $borrowed_books = [];
-    $availableBooks = [];
+    $availableTitles = [];
     $users = [];
     $stats = ['currently_borrowed' => 0, 'total_returned' => 0, 'overdue_count' => 0];
     $error_message = "Database error: " . $e->getMessage();
@@ -240,7 +323,8 @@ try {
 // Helper function to get status badge class
 function getStatusBadgeClass($status) {
     switch($status) {
-        case 'borrowed': return 'status-borrowed';
+        case 'borrowed': 
+        case 'renewed': return 'status-borrowed';
         case 'returned': return 'status-available';
         case 'overdue': return 'status-overdue';
         default: return 'status-borrowed';
@@ -370,12 +454,12 @@ function daysDifference($date1, $date2 = null) {
                     </div>
                     
                     <div class="form-group">
-                        <label for="book_id">Select Book</label>
-                        <select id="book_id" name="book_id" required>
-                            <option value="">Choose a book...</option>
-                            <?php foreach ($availableBooks as $book): ?>
-                                <option value="<?php echo $book['book_id']; ?>">
-                                    <?php echo htmlspecialchars($book['title'] . ' - ' . $book['author']); ?>
+                        <label for="title_id">Select Book Title</label>
+                        <select id="title_id" name="title_id" required>
+                            <option value="">Choose a book title...</option>
+                            <?php foreach ($availableTitles as $title): ?>
+                                <option value="<?php echo $title['title_id']; ?>">
+                                    <?php echo htmlspecialchars($title['title'] . ' - ' . $title['author'] . ' (' . $title['available_copies'] . ' available)'); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -384,7 +468,7 @@ function daysDifference($date1, $date2 = null) {
                     <div class="form-group">
                         <label>Borrowing Period</label>
                         <div style="padding: 0.75rem; border: 2px solid #e0e0e0; border-radius: 8px; background: #f8f9fa; color: #666;">
-                            7 days (Fixed period)
+                            7 days (Fixed period) - System will auto-assign available copy
                         </div>
                     </div>
                     
@@ -406,7 +490,7 @@ function daysDifference($date1, $date2 = null) {
                             id="search" 
                             name="search" 
                             class="search-input-wide"
-                            placeholder="Search by book title or student name..." 
+                            placeholder="Search by book title, student name, or copy ID..." 
                             value="<?php echo htmlspecialchars($search); ?>">
                         </div>
                         
@@ -414,13 +498,15 @@ function daysDifference($date1, $date2 = null) {
                             <label for="status">Status</label>
                             <select id="status" name="status">
                                 <option value="">All Status</option>
-                                <option value="borrowed" <?php echo $status_filter === 'borrowed' ? 'selected' : ''; ?>>Currently Borrowed</option>
+                                <option value="currently_borrowed" <?php echo $status_filter === 'currently_borrowed' ? 'selected' : ''; ?>>Currently Borrowed</option>
                                 <option value="returned" <?php echo $status_filter === 'returned' ? 'selected' : ''; ?>>Returned</option>
+                                <option value="renewed" <?php echo $status_filter === 'renewed' ? 'selected' : ''; ?>>Renewed</option>
+                                <option value="overdue" <?php echo $status_filter === 'overdue' ? 'selected' : ''; ?>>Overdue</option>
                             </select>
                         </div>
                         
                         <div class="form-group">
-                            <label for="overdue">Overdue</label>
+                            <label for="overdue">Quick Filter</label>
                             <select id="overdue" name="overdue">
                                 <option value="">All Books</option>
                                 <option value="yes" <?php echo $overdue_filter === 'yes' ? 'selected' : ''; ?>>Overdue Only</option>
@@ -439,8 +525,8 @@ function daysDifference($date1, $date2 = null) {
             <!-- Borrowed Books Table -->
             <div class="borrowed-books-table">
                 <div class="table-header">
-                    <h2 style ="color: black;">📋 Borrowed Books (<?php echo count($borrowed_books); ?> records)</h2>
-                    <a href="?" class="action-btn" style="background: white; color: var(--orange);">
+                    <h2 style="color: var(--black);">📋 Borrowed Books (<?php echo count($borrowed_books); ?> records)</h2>
+                    <a href="?" class="action-btn" style="background: var(--caramel); color: var(--white);">
                         🔄 Clear Filters
                     </a>
                 </div>
@@ -455,6 +541,7 @@ function daysDifference($date1, $date2 = null) {
                         <thead>
                             <tr>
                                 <th>Book Title</th>
+                                <th>Copy Info</th>
                                 <th>Student</th>
                                 <th>Borrow Date</th>
                                 <th>Due Date</th>
@@ -472,6 +559,11 @@ function daysDifference($date1, $date2 = null) {
                                         <small>by <?php echo htmlspecialchars($borrow['author']); ?></small>
                                     </td>
                                     <td>
+                                        <strong>Copy #<?php echo $borrow['copy_number']; ?></strong><br>
+                                        <small style="font-family: monospace; color: #666;"><?php echo htmlspecialchars($borrow['book_id']); ?></small><br>
+                                        <small>Condition: <?php echo htmlspecialchars($borrow['condition_status']); ?></small>
+                                    </td>
+                                    <td>
                                         <?php echo htmlspecialchars($borrow['first_name'] . ' ' . $borrow['last_name']); ?><br>
                                         <small><?php echo htmlspecialchars($borrow['username']); ?></small>
                                     </td>
@@ -487,7 +579,7 @@ function daysDifference($date1, $date2 = null) {
                                     <td>
                                         <?php if ($borrow['return_date']): ?>
                                             <?php echo date('M j, Y', strtotime($borrow['return_date'])); ?>
-                                            <?php if ($borrow['fine_amount'] > 0 && $borrow['status'] === 'returned'): ?>
+                                            <?php if ($borrow['calculated_fine'] > 0 && $borrow['status'] === 'returned'): ?>
                                                 <br><small style="color: #e74c3c;">
                                                     Returned <?php echo abs($borrow['days_overdue']); ?> day(s) late
                                                 </small>
@@ -500,11 +592,14 @@ function daysDifference($date1, $date2 = null) {
                                         <span class="status-badge <?php echo getStatusBadgeClass($borrow['display_status']); ?>">
                                             <?php echo ucfirst($borrow['display_status']); ?>
                                         </span>
+                                        <?php if ($borrow['renewal_count'] > 0): ?>
+                                            <br><small>Renewed <?php echo $borrow['renewal_count']; ?>x</small>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($borrow['fine_amount'] > 0): ?>
+                                        <?php if ($borrow['calculated_fine'] > 0): ?>
                                             <span style="color: #e74c3c; font-weight: 600;">
-                                                ₱<?php echo number_format($borrow['fine_amount'], 2); ?>
+                                                ₱<?php echo number_format($borrow['calculated_fine'], 2); ?>
                                             </span>
                                             <br><small style="color: #666;">
                                                 <?php echo $borrow['days_overdue']; ?> day(s) × ₱10.00
@@ -514,9 +609,9 @@ function daysDifference($date1, $date2 = null) {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($borrow['status'] === 'borrowed'): ?>
+                                        <?php if ($borrow['status'] === 'borrowed' || $borrow['status'] === 'overdue' || $borrow['status'] === 'renewed'): ?>
                                             <form method="POST" style="display: inline;" 
-                                                  onsubmit="return confirm('Mark this book as returned?');">
+                                                  onsubmit="return confirm('Mark this book copy as returned?');">
                                                 <input type="hidden" name="borrow_id" value="<?php echo $borrow['id']; ?>">
                                                 <button type="submit" name="return_book" class="btn-return">
                                                     ↩️ Return
