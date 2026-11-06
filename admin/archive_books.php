@@ -1,24 +1,27 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Admin authentication check
 if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
-    header('Location: login.php?error=Please login to access admin panel');
+    header('Location: login.php');
     exit();
 }
-
-// Include database connection
-require_once '../includes/db.php';
 
 $message = '';
 $message_type = '';
 $errors = [];
 
-// Handle archive book action (updated for new structure)
-if (isset($_POST['archive_book']) && isset($_POST['title_id'])) {
+// All POST actions require CSRF
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verify_csrf_token()) {
+    $message = "Security validation failed. Please refresh and try again.";
+    $message_type = "error";
+}
+
+// Handle archive book action
+elseif (isset($_POST['archive_book']) && isset($_POST['title_id'])) {
     try {
         $title_id = intval($_POST['title_id']);
         
@@ -71,13 +74,14 @@ if (isset($_POST['archive_book']) && isset($_POST['title_id'])) {
         }
     } catch (PDOException $e) {
         $conn->rollback();
-        $message = "Error: " . $e->getMessage();
+        error_log("archive_books archive PDOException: " . $e->getMessage());
+        $message = "An error occurred. Please try again.";
         $message_type = "error";
     }
 }
 
-// Handle restore book action (updated for new structure)
-if (isset($_POST['restore_book']) && isset($_POST['title_id'])) {
+// Handle restore book action
+elseif (isset($_POST['restore_book']) && isset($_POST['title_id'])) {
     try {
         $title_id = intval($_POST['title_id']);
         
@@ -116,13 +120,14 @@ if (isset($_POST['restore_book']) && isset($_POST['title_id'])) {
         }
     } catch (PDOException $e) {
         $conn->rollback();
-        $message = "Error: " . $e->getMessage();
+        error_log("archive_books restore PDOException: " . $e->getMessage());
+        $message = "An error occurred. Please try again.";
         $message_type = "error";
     }
 }
 
-// Handle permanent delete action (updated for new structure)
-if (isset($_POST['permanent_delete']) && isset($_POST['title_id'])) {
+// Handle permanent delete action
+elseif (isset($_POST['permanent_delete']) && isset($_POST['title_id'])) {
     try {
         $title_id = intval($_POST['title_id']);
         
@@ -134,11 +139,6 @@ if (isset($_POST['permanent_delete']) && isset($_POST['title_id'])) {
         if ($book) {
             $conn->beginTransaction();
             
-            // Delete book image if exists
-            if ($book['book_image'] && file_exists('../uploads/book-images/' . $book['book_image'])) {
-                unlink('../uploads/book-images/' . $book['book_image']);
-            }
-            
             // Delete all copies first (due to foreign key constraints)
             $deleteCopiesStmt = $conn->prepare("DELETE FROM book_copies WHERE title_id = ?");
             $deleteCopiesResult = $deleteCopiesStmt->execute([$title_id]);
@@ -149,6 +149,9 @@ if (isset($_POST['permanent_delete']) && isset($_POST['title_id'])) {
             
             if ($deleteCopiesResult && $deleteTitleResult) {
                 $conn->commit();
+                if (!empty($book['book_image'])) {
+                    storage_delete_book_image($book['book_image']);
+                }
                 $message = "Book '{$book['title']}' and all its copies permanently deleted!";
                 $message_type = "success";
             } else {
@@ -162,7 +165,8 @@ if (isset($_POST['permanent_delete']) && isset($_POST['title_id'])) {
         }
     } catch (PDOException $e) {
         $conn->rollback();
-        $message = "Error: " . $e->getMessage();
+        error_log("archive_books delete PDOException: " . $e->getMessage());
+        $message = "An error occurred. Please try again.";
         $message_type = "error";
     }
 }
@@ -481,7 +485,7 @@ function buildUrl($newParams = []) {
                             <div class="book-card <?php echo $book['status'] === 'Archived' ? 'archived' : ''; ?>">
                                 <div class="book-image">
                                     <?php if (!empty($book['book_image'])): ?>
-                                        <img src="../uploads/book-images/<?php echo htmlspecialchars($book['book_image']); ?>" 
+                                        <img src="<?php echo e(storage_get_book_image_url($book['book_image'], '..')); ?>" 
                                              alt="<?php echo htmlspecialchars($book['title']); ?>"
                                              style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
                                     <?php else: ?>
@@ -524,16 +528,18 @@ function buildUrl($newParams = []) {
                                 <div class="book-actions">
                                     <?php if ($book['status'] === 'Archived'): ?>
                                         <!-- Archived book actions -->
-                                        <form method="POST" style="display: inline;" 
+                                        <form method="POST" style="display: inline;"
                                               onsubmit="return confirm('Restore this book and all its copies to active status?');">
+                                            <?php echo csrf_field(); ?>
                                             <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                             <button type="submit" name="restore_book" class="btn-restore">
                                                 🔄 Restore
                                             </button>
                                         </form>
-                                        
-                                        <form method="POST" style="display: inline;" 
+
+                                        <form method="POST" style="display: inline;"
                                               onsubmit="return confirm('PERMANENTLY delete this book and all its copies? This cannot be undone!');">
+                                            <?php echo csrf_field(); ?>
                                             <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                             <button type="submit" name="permanent_delete" class="btn-delete">
                                                 🗑️ Delete
@@ -544,10 +550,11 @@ function buildUrl($newParams = []) {
                                         <a href="edit_book.php?id=<?php echo $book['title_id']; ?>" class="btn-edit">
                                             ✏️ Edit
                                         </a>
-                                        
+
                                         <?php if ($book['available_copies'] == $book['total_copies']): ?>
-                                            <form method="POST" style="display: inline;" 
+                                            <form method="POST" style="display: inline;"
                                                   onsubmit="return confirm('Archive this book and all its copies? They will no longer be available for borrowing.');">
+                                                <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                                 <button type="submit" name="archive_book" class="btn-archive">
                                                     📦 Archive

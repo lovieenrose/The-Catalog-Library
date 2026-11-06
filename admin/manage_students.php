@@ -1,24 +1,27 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Admin authentication check
 if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
-    header('Location: login.php?error=Please login to access admin panel');
+    header('Location: login.php');
     exit();
 }
-
-// Include database connection
-require_once '../includes/db.php';
 
 $message = '';
 $message_type = '';
 $errors = [];
 
+// All POST actions require CSRF
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verify_csrf_token()) {
+    $message = "Security validation failed. Please refresh and try again.";
+    $message_type = "error";
+}
+
 // Handle student registration
-if (isset($_POST['register_student'])) {
+elseif (isset($_POST['register_student'])) {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
@@ -73,7 +76,8 @@ if (isset($_POST['register_student'])) {
                 }
             }
         } catch (PDOException $e) {
-            $errors[] = "Database error: " . $e->getMessage();
+            error_log("manage_students PDOException: " . $e->getMessage());
+            $errors[] = "A database error occurred. Please try again.";
         }
     }
     
@@ -98,7 +102,8 @@ if (isset($_POST['register_student'])) {
             }
             
         } catch (PDOException $e) {
-            $errors[] = "Database error: " . $e->getMessage();
+            error_log("manage_students PDOException: " . $e->getMessage());
+            $errors[] = "A database error occurred. Please try again.";
         }
     }
     
@@ -142,7 +147,8 @@ if (isset($_POST['delete_student']) && isset($_POST['user_id'])) {
             }
         }
     } catch (PDOException $e) {
-        $message = "Error: " . $e->getMessage();
+        error_log("manage_students delete PDOException: " . $e->getMessage());
+        $message = "An error occurred. Please try again.";
         $message_type = "error";
     }
 }
@@ -210,7 +216,8 @@ try {
     $students = [];
     $totalStudents = 0;
     $stats = ['total_students' => 0, 'active_borrowers' => 0, 'total_overdue' => 0];
-    $error_message = "Database error: " . $e->getMessage();
+    error_log("manage_students query PDOException: " . $e->getMessage());
+    $error_message = "A database error occurred. Please check server logs.";
 }
 
 // Helper function to build URL with current parameters
@@ -325,6 +332,7 @@ function buildUrl($newParams = []) {
             <div class="registration-section hidden" id="registrationSection">
                 <h3>👤 Register New Student</h3>
                 <form method="POST" class="registration-form">
+                    <?php echo csrf_field(); ?>
                     <div class="form-group">
                         <label for="username">Username *</label>
                         <input type="text" id="username" name="username" required 
@@ -442,8 +450,9 @@ function buildUrl($newParams = []) {
                                     </td>
                                     <td><?php echo date('M j, Y', strtotime($student['created_at'])); ?></td>
                                     <td>
-                                        <form method="POST" style="display: inline;" 
+                                        <form method="POST" style="display: inline;"
                                               onsubmit="return confirm('Are you sure you want to delete this student? This action cannot be undone.');">
+                                            <?php echo csrf_field(); ?>
                                             <input type="hidden" name="user_id" value="<?php echo $student['user_id']; ?>">
                                             <button type="submit" name="delete_student" class="btn-delete">
                                                 🗑️ Delete

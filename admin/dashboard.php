@@ -1,20 +1,17 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+// Admin authentication check (before including other files)
+if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
+    header('Location: login.php');
+    exit();
 }
 
 // Set timezone to Philippines (adjust this to your actual timezone)
 date_default_timezone_set('Asia/Manila');
-
-// Admin authentication check (before including other files)
-if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
-    header('Location: login.php?error=Please login to access admin panel');
-    exit();
-}
-
-// Include database connection (admin folder is inside root, so go up one level)
-require_once '../includes/db.php';
 
 // Get dashboard statistics
 try {

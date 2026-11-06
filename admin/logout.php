@@ -1,13 +1,14 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+
+if (!empty($_SESSION['username']) || !empty($_SESSION['admin_id'])) {
+    $identifier = $_SESSION['username'] ?? $_SESSION['admin_id'] ?? 'Unknown';
+    error_log("Admin logout: " . $identifier . " at " . date('Y-m-d H:i:s'));
 }
 
-// Clear all session variables
-$_SESSION = array();
+$_SESSION = [];
 
-// Delete the session cookie if it exists
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
     setcookie(session_name(), '', time() - 42000,
@@ -16,10 +17,6 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Destroy the session
 session_destroy();
-
-// Redirect to login page with success message
-header('Location: login.php?message=Successfully logged out');
+header('Location: login.php?message=' . urlencode('Successfully logged out'));
 exit();
-?>

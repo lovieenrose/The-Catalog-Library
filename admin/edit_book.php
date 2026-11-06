@@ -1,17 +1,14 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Admin authentication check
 if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
-    header('Location: login.php?error=Please login to access admin panel');
+    header('Location: login.php');
     exit();
 }
-
-// Include database connection
-require_once '../includes/db.php';
 
 $message = '';
 $message_type = '';
@@ -59,13 +56,19 @@ try {
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF verification
+    if (!verify_csrf_token()) {
+        $errors[] = "Security validation failed. Please refresh and try again.";
+    } else {
     // Validate and sanitize input
-    $title = trim($_POST['title'] ?? '');
-    $author = trim($_POST['author'] ?? '');
-    $category = trim($_POST['category'] ?? '');
+    $title          = trim($_POST['title'] ?? '');
+    $author         = trim($_POST['author'] ?? '');
+    $category       = trim($_POST['category'] ?? '');
     $published_year = trim($_POST['published_year'] ?? '');
     $published_month = trim($_POST['published_month'] ?? '');
-    $status = $_POST['status'] ?? 'Available';
+    // Allowlist status values
+    $allowed_statuses = ['Available', 'Archived'];
+    $status = in_array($_POST['status'] ?? '', $allowed_statuses) ? $_POST['status'] : 'Available';
     
     // Validation
     if (empty($title)) {
@@ -85,55 +88,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Handle file upload
-    $book_image = $book['book_image']; // Keep existing image by default
+    $book_image  = $book['book_image']; // Keep existing image by default
     $remove_image = isset($_POST['remove_image']);
-    
-    if ($remove_image) {
-        $book_image = null;
-    }
-    
+    $new_uploaded_image = null;
+
     if (isset($_FILES['book_image']) && $_FILES['book_image']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../uploads/book-images/';
-        
-        // Create directory if it doesn't exist
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-        
-        $file_tmp = $_FILES['book_image']['tmp_name'];
-        $file_name = $_FILES['book_image']['name'];
-        $file_size = $_FILES['book_image']['size'];
-        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-        
-        // Validate file
-        $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-        $max_file_size = 5 * 1024 * 1024; // 5MB
-        
-        if (!in_array($file_ext, $allowed_extensions)) {
-            $errors[] = "Only JPG, JPEG, PNG, GIF, and WEBP files are allowed.";
-        } elseif ($file_size > $max_file_size) {
-            $errors[] = "File size must be less than 5MB.";
+        $uploadResult = storage_upload_book_image($_FILES['book_image']);
+        if (!$uploadResult['success']) {
+            $errors[] = $uploadResult['error'];
         } else {
-            // Remove old image if exists
-            if ($book['book_image'] && file_exists($upload_dir . $book['book_image'])) {
-                unlink($upload_dir . $book['book_image']);
-            }
-            
-            // Generate unique filename
-            $book_image = uniqid() . '_' . time() . '.' . $file_ext;
-            $upload_path = $upload_dir . $book_image;
-            
-            if (!move_uploaded_file($file_tmp, $upload_path)) {
-                $errors[] = "Failed to upload image.";
-                $book_image = $book['book_image']; // Revert to original
-            }
+            $new_uploaded_image = $uploadResult['filename'];
+            $book_image = $new_uploaded_image;
         }
-    } elseif ($remove_image && $book['book_image']) {
-        // Remove old image file
-        $upload_dir = '../uploads/book-images/';
-        if (file_exists($upload_dir . $book['book_image'])) {
-            unlink($upload_dir . $book['book_image']);
-        }
+    } elseif ($remove_image) {
+        $book_image = null;
     }
     
     // If no errors, update database (updated for new structure)
@@ -171,6 +139,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updateCopiesStmt->execute([$title_id, $title_id]);
                 
                 $conn->commit();
+
+                // Safely delete old image after transaction commits
+                if ($new_uploaded_image && !empty($book['book_image']) && $book['book_image'] !== $new_uploaded_image) {
+                    storage_delete_book_image($book['book_image']);
+                } elseif ($remove_image && !empty($book['book_image'])) {
+                    storage_delete_book_image($book['book_image']);
+                }
                 
                 $message = "Book updated successfully!";
                 $message_type = "success";
@@ -195,14 +170,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $book_copies = $copiesStmt->fetchAll(PDO::FETCH_ASSOC);
             } else {
                 $conn->rollBack();
+                if ($new_uploaded_image) {
+                    storage_delete_book_image($new_uploaded_image);
+                }
                 $errors[] = "Failed to update book in database.";
             }
             
         } catch (PDOException $e) {
             $conn->rollBack();
-            $errors[] = "Database error: " . $e->getMessage();
+            if ($new_uploaded_image) {
+                storage_delete_book_image($new_uploaded_image);
+            }
+            error_log("edit_book PDOException: " . $e->getMessage());
+            $errors[] = "A database error occurred. Please try again.";
         }
     }
+    } // end CSRF else
     
     if (!empty($errors)) {
         $message_type = "error";
@@ -343,6 +326,7 @@ try {
             <!-- Form Container -->
             <div class="form-container">
                 <form method="POST" enctype="multipart/form-data" id="editBookForm">
+                    <?php echo csrf_field(); ?>
                     <div class="form-grid">
                         <!-- Book Title -->
                         <div class="form-group">
@@ -424,7 +408,7 @@ try {
                             
                             <?php if ($book['book_image']): ?>
                                 <div class="current-image-container">
-                                    <img src="../uploads/book-images/<?php echo htmlspecialchars($book['book_image']); ?>" 
+                                    <img src="<?php echo e(storage_get_book_image_url($book['book_image'], '..')); ?>" 
                                          alt="Current book cover" class="current-image">
                                     <div class="checkbox-group">
                                         <input type="checkbox" id="remove_image" name="remove_image">

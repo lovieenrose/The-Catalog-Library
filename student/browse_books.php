@@ -1,6 +1,7 @@
 <?php 
-require_once '../includes/session.php';
-require_once '../includes/db.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Get user information from session
 $user_id = $_SESSION['user_id'] ?? $_SESSION['student_id'] ?? null;
@@ -10,26 +11,31 @@ $user_name = $_SESSION['user_name'] ?? $_SESSION['full_name'] ?? $_SESSION['user
 $borrowed_count = 0;
 if ($user_id) {
     try {
-        $count_stmt = $conn->prepare("SELECT COUNT(*) as count FROM borrowed_books WHERE user_id = ? AND status IN ('borrowed', 'overdue')");
+        $count_stmt = $conn->prepare("SELECT COUNT(*) as count FROM borrowed_books WHERE user_id = ? AND status IN ('borrowed', 'overdue', 'renewed')");
         $count_stmt->execute([$user_id]);
         $count_result = $count_stmt->fetch();
-        $borrowed_count = $count_result['count'];
+        $borrowed_count = (int)($count_result['count'] ?? 0);
     } catch (PDOException $e) {
         error_log("Error getting borrowed count: " . $e->getMessage());
     }
 }
 
 // Handle search and filter parameters
-$search_title = $_GET['title'] ?? '';
-$search_author = $_GET['author'] ?? '';
-$search_category = $_GET['category'] ?? '';
-$search_published_year = $_GET['published_year'] ?? '';
-$search_book_id = $_GET['book_id'] ?? '';
-$search_status = $_GET['status'] ?? '';
-$sort_by = $_GET['sort_by'] ?? 'title_asc'; // Default sort
+$search_title = trim($_GET['title'] ?? '');
+$search_author = trim($_GET['author'] ?? '');
+$search_category = trim($_GET['category'] ?? '');
+$search_published_year = trim($_GET['published_year'] ?? '');
+$search_book_id = trim($_GET['book_id'] ?? '');
+$search_status = trim($_GET['status'] ?? '');
+$sort_by = $_GET['sort_by'] ?? 'title_asc';
 
-// Build the WHERE clause for search using new table structure
-$where_conditions = [];
+$valid_sorts = ['title_asc', 'title_desc', 'author_asc', 'author_desc', 'year_asc', 'year_desc'];
+if (!in_array($sort_by, $valid_sorts, true)) {
+    $sort_by = 'title_asc';
+}
+
+// Build the WHERE clause for search
+$where_conditions = ["bt.status != 'Archived'"];
 $params = [];
 
 if (!empty($search_title)) {
@@ -47,13 +53,12 @@ if (!empty($search_category)) {
     $params[] = $search_category;
 }
 
-if (!empty($search_published_year)) {
+if (!empty($search_published_year) && is_numeric($search_published_year)) {
     $where_conditions[] = "bt.published_year = ?";
-    $params[] = $search_published_year;
+    $params[] = (int)$search_published_year;
 }
 
 if (!empty($search_book_id)) {
-    // Search in book_copies table for specific book_id
     $where_conditions[] = "EXISTS (SELECT 1 FROM book_copies bc WHERE bc.title_id = bt.title_id AND bc.book_id = ?)";
     $params[] = $search_book_id;
 }
@@ -66,34 +71,32 @@ if (!empty($search_status)) {
     }
 }
 
-$where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
+$where_clause = "WHERE " . implode(" AND ", $where_conditions);
 
-// Build ORDER BY clause based on sort_by parameter
-$order_clause = "ORDER BY ";
+// Build ORDER BY clause safely
 switch ($sort_by) {
     case 'title_asc':
-        $order_clause .= "bt.title ASC";
+        $order_clause = "ORDER BY bt.title ASC";
         break;
     case 'title_desc':
-        $order_clause .= "bt.title DESC";
+        $order_clause = "ORDER BY bt.title DESC";
         break;
     case 'author_asc':
-        $order_clause .= "bt.author ASC, bt.title ASC";
+        $order_clause = "ORDER BY bt.author ASC, bt.title ASC";
         break;
     case 'author_desc':
-        $order_clause .= "bt.author DESC, bt.title ASC";
+        $order_clause = "ORDER BY bt.author DESC, bt.title ASC";
         break;
     case 'year_asc':
-        $order_clause .= "bt.published_year ASC, bt.title ASC";
+        $order_clause = "ORDER BY bt.published_year ASC, bt.title ASC";
         break;
     case 'year_desc':
-        $order_clause .= "bt.published_year DESC, bt.title ASC";
+        $order_clause = "ORDER BY bt.published_year DESC, bt.title ASC";
         break;
     default:
-        $order_clause .= "bt.title ASC";
+        $order_clause = "ORDER BY bt.title ASC";
 }
 
-// Get all book titles with their availability status using new database structure
 try {
     $query = "
         SELECT 
@@ -128,7 +131,6 @@ try {
 
 $total_books = count($books);
 
-// Get filter options display text
 function getFilterDisplayText($sort_by) {
     switch ($sort_by) {
         case 'title_asc': return 'A to Z';
@@ -141,7 +143,6 @@ function getFilterDisplayText($sort_by) {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -154,7 +155,6 @@ function getFilterDisplayText($sort_by) {
     <link href="https://fonts.googleapis.com/css2?family=Sniglet:wght@400;800&display=swap" rel="stylesheet">
     <?php include '../includes/favicon.php'; ?>
     <style>
-        /* Filter dropdown styles */
         .filter-dropdown {
             position: relative;
             display: inline-block;
@@ -225,7 +225,6 @@ function getFilterDisplayText($sort_by) {
             margin-top: 0.25rem;
         }
 
-        /* Updated book meta styles for new fields */
         .copies-info {
             display: flex;
             gap: 1rem;
@@ -254,7 +253,6 @@ function getFilterDisplayText($sort_by) {
 </head>
 <body>
 
-<!-- Navigation Header - SEPARATE FROM BANNER -->
 <header class="main-header">
     <div class="logo-title">
         <img src="../assets/images/logo.png" alt="Logo" class="banner-logo-dashboard">
@@ -270,43 +268,38 @@ function getFilterDisplayText($sort_by) {
     <a href="logout.php" class="logout-btn">Log Out</a>
 </header>
 
-<!-- Banner Section - ONLY WELCOME CONTENT -->
 <section class="browse-header">
     <img src="../assets/images/banner-browse.png" alt="Library Banner" class="banner-bg">
-    
-    <!-- Welcome Content -->
     <div class="welcome-content">
         <h2 class="sniglet-extrabold">Browse Books</h2>
         <p>Here, you can explore a diverse selection of titles carefully curated to inform, inspire, and entertain. Take your time and enjoy discovering your next great read.</p>
     </div>
 </section>
 
-<!-- Search Section -->
 <section class="search-section">
     <?php if (isset($_SESSION['borrow_error'])): ?>
-        <div class="alert alert-error">
-            <?php echo htmlspecialchars($_SESSION['borrow_error']); ?>
+        <div class="alert alert-error" style="background: #ffe6e6; color: #c62828; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ef9a9a;">
+            <?php echo e($_SESSION['borrow_error']); ?>
             <?php unset($_SESSION['borrow_error']); ?>
         </div>
     <?php endif; ?>
     
     <?php if (isset($_SESSION['borrow_success'])): ?>
-        <div class="alert alert-success">
-            <?php echo htmlspecialchars($_SESSION['borrow_success']); ?>
+        <div class="alert alert-success" style="background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #a5d6a7;">
+            <?php echo e($_SESSION['borrow_success']); ?>
             <?php unset($_SESSION['borrow_success']); ?>
         </div>
     <?php endif; ?>
     
     <form method="GET" action="browse_books.php" id="searchForm">
-        <input type="hidden" name="sort_by" value="<?php echo htmlspecialchars($sort_by); ?>">
+        <input type="hidden" name="sort_by" value="<?php echo e($sort_by); ?>">
         <div class="search-bar">
-            <input type="text" name="title" placeholder="Search By Title" value="<?php echo htmlspecialchars($search_title); ?>">
+            <input type="text" name="title" placeholder="Search By Title" value="<?php echo e($search_title); ?>">
             <button type="submit">🔍</button>
         </div>
     </form>
 </section>
 
-<!-- Books Section -->
 <section class="books-section">
     <div class="books-header">
         <h3>All Books (<?php echo $total_books; ?>)</h3>
@@ -316,7 +309,7 @@ function getFilterDisplayText($sort_by) {
                 <span>Filter</span>
             </div>
             <div class="current-filter">
-                Sorted by: <?php echo getFilterDisplayText($sort_by); ?>
+                Sorted by: <?php echo e(getFilterDisplayText($sort_by)); ?>
             </div>
             <div class="filter-options" id="filterDropdown">
                 <div class="filter-option <?php echo $sort_by === 'title_asc' ? 'active' : ''; ?>" onclick="applyFilter('title_asc')">
@@ -342,8 +335,7 @@ function getFilterDisplayText($sort_by) {
     </div>
 
     <?php if (empty($books)): ?>
-        <div class="no-books">
-            <img src="../assets/images/no-books.png" alt="No books found">
+        <div class="no-books" style="text-align: center; padding: 40px 20px;">
             <h3>No books found</h3>
             <p>Try adjusting your search criteria or browse all available books.</p>
             <a href="browse_books.php" class="btn" style="display: inline-block; margin-top: 15px;">View All Books</a>
@@ -352,52 +344,44 @@ function getFilterDisplayText($sort_by) {
         <div class="books-grid">
             <?php foreach ($books as $book): ?>
                 <?php
-                // Handle book image
-                $book_image_path = '../uploads/book-images/' . ($book['book_image'] ?? 'default_book.jpg');
-                $default_image_path = '../uploads/book-images/default_book.jpg';
+                $book_image_path = storage_get_book_image_url($book['book_image'] ?? null, '..');
                 
-                // Check if book image exists, fallback to default
-                if (!$book['book_image'] || !file_exists($book_image_path)) {
-                    $book_image_path = $default_image_path;
-                }
-                
-                // Get first book ID for display purposes
-                $sample_book_ids = explode(', ', $book['sample_book_ids'] ?? '');
+                $sample_book_ids = array_filter(explode(', ', $book['sample_book_ids'] ?? ''));
                 $display_book_id = $sample_book_ids[0] ?? 'N/A';
                 ?>
                 <div class="book-card">
                     <div class="book-content">
                         <div class="book-image">
-                            <img src="<?php echo htmlspecialchars($book_image_path); ?>" 
-                                 alt="<?php echo htmlspecialchars($book['title']); ?>" 
+                            <img src="<?php echo e($book_image_path); ?>" 
+                                 alt="<?php echo e($book['title']); ?>" 
                                  onerror="this.src='../uploads/book-images/default_book.jpg'">
                         </div>
                         <div class="book-details">
                             <div class="book-info">
-                                <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
-                                <div class="book-meta"><strong>Book ID:</strong> <?php echo htmlspecialchars($display_book_id); ?></div>
-                                <div class="book-meta"><strong>Author:</strong> <?php echo htmlspecialchars($book['author'] ?? 'Unknown'); ?></div>
-                                <div class="book-meta"><strong>Category:</strong> <?php echo htmlspecialchars($book['category'] ?? 'General'); ?></div>
+                                <div class="book-title"><?php echo e($book['title']); ?></div>
+                                <div class="book-meta"><strong>Book ID:</strong> <?php echo e($display_book_id); ?></div>
+                                <div class="book-meta"><strong>Author:</strong> <?php echo e($book['author'] ?? 'Unknown'); ?></div>
+                                <div class="book-meta"><strong>Category:</strong> <?php echo e($book['category'] ?? 'General'); ?></div>
                                 <div class="book-meta"><strong>Published:</strong> 
                                     <?php 
-                                    $published = $book['published_month'] && $book['published_year'] 
+                                    $published = (!empty($book['published_month']) && !empty($book['published_year'])) 
                                         ? $book['published_month'] . ' ' . $book['published_year']
                                         : ($book['published_year'] ?? 'N/A');
-                                    echo htmlspecialchars($published);
+                                    echo e($published);
                                     ?>
                                 </div>
                                 <div class="copies-info">
-                                    <span class="copies-available">Available: <?php echo $book['available_copies']; ?></span>
-                                    <span class="copies-total">Total: <?php echo $book['total_copies']; ?></span>
+                                    <span class="copies-available">Available: <?php echo (int)$book['available_copies']; ?></span>
+                                    <span class="copies-total">Total: <?php echo (int)$book['total_copies']; ?></span>
                                 </div>
                                 <div class="book-meta"><strong>Status:</strong> 
                                     <span class="book-status <?php echo $book['status'] === 'Available' ? 'status-available' : 'status-borrowed'; ?>">
-                                        <?php echo htmlspecialchars($book['status']); ?>
+                                        <?php echo e($book['status']); ?>
                                     </span>
                                 </div>
                                 <?php if (count($sample_book_ids) > 1): ?>
                                     <div class="sample-ids">
-                                        <strong>Copy IDs:</strong> <?php echo htmlspecialchars(implode(', ', array_slice($sample_book_ids, 0, 3))); ?>
+                                        <strong>Copy IDs:</strong> <?php echo e(implode(', ', array_slice($sample_book_ids, 0, 3))); ?>
                                         <?php if (count($sample_book_ids) > 3): ?>
                                             ... (<?php echo count($sample_book_ids); ?> total)
                                         <?php endif; ?>
@@ -407,7 +391,7 @@ function getFilterDisplayText($sort_by) {
                             <div class="button-container">
                                 <?php if ($book['status'] === 'Available'): ?>
                                     <button class="borrow-btn" onclick="showBorrowModal(
-                                        <?php echo $book['title_id']; ?>, 
+                                        <?php echo (int)$book['title_id']; ?>, 
                                         '<?php echo addslashes($book['title']); ?>', 
                                         '<?php echo addslashes($book['author'] ?? 'Unknown'); ?>', 
                                         '<?php echo addslashes($book['category'] ?? 'General'); ?>',
@@ -415,8 +399,8 @@ function getFilterDisplayText($sort_by) {
                                         '<?php echo addslashes($book_image_path); ?>',
                                         '<?php echo addslashes($book['status']); ?>',
                                         '<?php echo addslashes($display_book_id); ?>',
-                                        <?php echo $book['available_copies']; ?>,
-                                        <?php echo $book['total_copies']; ?>
+                                        <?php echo (int)$book['available_copies']; ?>,
+                                        <?php echo (int)$book['total_copies']; ?>
                                     )">Borrow Now</button>
                                 <?php else: ?>
                                     <button class="borrow-btn" disabled>Not Available</button>
@@ -465,8 +449,8 @@ function getFilterDisplayText($sort_by) {
 let currentTitleId = null;
 const borrowedCount = <?php echo $borrowed_count; ?>;
 const maxBorrowLimit = 2;
+const csrfToken = '<?php echo e(csrf_token()); ?>';
 
-// Filter functionality
 function toggleFilterDropdown() {
     const dropdown = document.getElementById('filterDropdown');
     dropdown.classList.toggle('show');
@@ -478,34 +462,17 @@ function applyFilter(sortBy) {
     window.location.href = url.toString();
 }
 
-// Close dropdown when clicking outside
 document.addEventListener('click', function(event) {
     const dropdown = document.getElementById('filterDropdown');
     const filterBtn = event.target.closest('.filter-btn');
-    
-    if (!filterBtn && !dropdown.contains(event.target)) {
+    if (dropdown && !filterBtn && !dropdown.contains(event.target)) {
         dropdown.classList.remove('show');
     }
 });
 
-// Updated showBorrowModal function for new structure
 function showBorrowModal(titleId, title, author, category, publishedYear, imagePath, status, sampleBookId, availableCopies, totalCopies) {
-    console.log('showBorrowModal called with:', {
-        titleId: titleId,
-        title: title, 
-        author: author, 
-        category: category, 
-        publishedYear: publishedYear, 
-        imagePath: imagePath,
-        status: status,
-        sampleBookId: sampleBookId,
-        availableCopies: availableCopies,
-        totalCopies: totalCopies
-    });
-    
     currentTitleId = titleId;
     
-    // Set ALL book details
     document.getElementById('modalBookTitle').textContent = title;
     document.getElementById('modalBookCode').textContent = sampleBookId || 'N/A';
     document.getElementById('modalBookAuthor').textContent = author;
@@ -514,119 +481,32 @@ function showBorrowModal(titleId, title, author, category, publishedYear, imageP
     document.getElementById('modalAvailableCopies').textContent = availableCopies;
     document.getElementById('modalTotalCopies').textContent = totalCopies;
     
-    // Update status
     const statusElement = document.querySelector('#borrowModal .status-available');
     if (statusElement) {
         statusElement.textContent = status || 'Available';
     }
     
-    // Handle the image with forced constraints
     const modalBookImage = document.getElementById('modalBookImage');
     const modalImageContainer = document.querySelector('.modal-book-image');
     
     if (modalBookImage && modalImageContainer) {
-        console.log('Setting up modal image with forced constraints...');
-        
-        // Reset any inline styles that might interfere
-        modalBookImage.removeAttribute('style');
-        
-        // FORCE the container sizes immediately
-        modalImageContainer.style.width = '120px';
-        modalImageContainer.style.height = '180px';
-        modalImageContainer.style.overflow = 'hidden';
-        modalImageContainer.style.position = 'relative';
-        modalImageContainer.style.flexShrink = '0';
-        modalImageContainer.style.display = 'block';
-        modalImageContainer.style.boxSizing = 'border-box';
-        
-        // FORCE the image constraints before setting the source
-        modalBookImage.style.width = '120px';
-        modalBookImage.style.height = '180px';
-        modalBookImage.style.maxWidth = '120px';
-        modalBookImage.style.maxHeight = '180px';
-        modalBookImage.style.minWidth = '120px';
-        modalBookImage.style.minHeight = '180px';
-        modalBookImage.style.objectFit = 'cover';
-        modalBookImage.style.position = 'absolute';
-        modalBookImage.style.top = '0';
-        modalBookImage.style.left = '0';
-        modalBookImage.style.right = '0';
-        modalBookImage.style.bottom = '0';
-        modalBookImage.style.margin = '0';
-        modalBookImage.style.padding = '0';
-        modalBookImage.style.display = 'block';
-        modalBookImage.style.borderRadius = '6px';
-        modalBookImage.style.zIndex = '1';
-        modalBookImage.style.transform = 'none';
-        modalBookImage.style.boxSizing = 'border-box';
-        
-        // Set the image source with fallback
-        const imageToUse = imagePath && imagePath !== '../uploads/book-images/default_book.jpg' ? imagePath : '../uploads/book-images/default_book.jpg';
-        modalBookImage.src = imageToUse;
+        modalBookImage.src = imagePath || '../uploads/book-images/default_book.jpg';
         modalBookImage.alt = title;
-        
-        console.log('Modal image configured with path:', imageToUse);
-        
-        // Handle image load/error events with constraint re-enforcement
-        modalBookImage.onload = function() {
-            console.log('✅ Modal image loaded successfully');
-            
-            // RE-ENFORCE constraints after image loads (critical!)
-            this.style.width = '120px';
-            this.style.height = '180px';
-            this.style.maxWidth = '120px';
-            this.style.maxHeight = '180px';
-            this.style.objectFit = 'cover';
-            this.style.position = 'absolute';
-            this.style.top = '0';
-            this.style.left = '0';
-            this.style.transform = 'none';
-            
-            // Show the image container when image loads
-            modalImageContainer.style.display = 'block';
-            
-            console.log('✅ Image constraints re-enforced after load');
-        };
-        
-        modalBookImage.onerror = function() {
-            console.log('❌ Modal image failed to load, using default');
-            this.src = '../uploads/book-images/default_book.jpg';
-            
-            // Apply constraints to fallback image too
-            this.style.width = '120px';
-            this.style.height = '180px';
-            this.style.maxWidth = '120px';
-            this.style.maxHeight = '180px';
-            this.style.objectFit = 'cover';
-            this.style.position = 'absolute';
-            this.style.top = '0';
-            this.style.left = '0';
-        };
-    } else {
-        console.error('❌ Modal image elements not found!');
     }
     
-    // Show modal and prevent body scroll
     const modal = document.getElementById('borrowModal');
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
-    
-    console.log('Modal displayed with forced constraints');
 }
 
 function closeBorrowModal() {
     document.getElementById('borrowModal').style.display = 'none';
     currentTitleId = null;
-    
-    // Restore body scroll
     document.body.style.overflow = '';
-    
-    console.log('Modal closed');
 }
 
 document.getElementById('confirmBorrow').onclick = function() {
     if (currentTitleId) {
-        // Check borrowing limit before proceeding
         if (borrowedCount >= maxBorrowLimit) {
             alert('⚠️ Borrowing Limit Reached!\n\nYou have already borrowed ' + borrowedCount + ' books. You can only borrow a maximum of ' + maxBorrowLimit + ' books at a time.\n\nPlease return a book before borrowing a new one.');
             closeBorrowModal();
@@ -637,33 +517,35 @@ document.getElementById('confirmBorrow').onclick = function() {
 };
 
 function borrowBook(titleId) {
-    // Double-check the limit client-side
     if (borrowedCount >= maxBorrowLimit) {
         alert('⚠️ You have reached the maximum borrowing limit of ' + maxBorrowLimit + ' books.');
         return;
     }
     
-    // Show loading state
     const confirmBtn = document.getElementById('confirmBorrow');
     confirmBtn.textContent = 'Processing...';
     confirmBtn.disabled = true;
     
-    // Create a form and submit it - now using title_id instead of book_id
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = 'borrow_book.php';
     
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrf_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+
     const titleInput = document.createElement('input');
     titleInput.type = 'hidden';
     titleInput.name = 'title_id';
     titleInput.value = titleId;
-    
     form.appendChild(titleInput);
+    
     document.body.appendChild(form);
     form.submit();
 }
 
-// Close modal when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('borrowModal');
     if (event.target === modal) {
@@ -673,6 +555,5 @@ window.onclick = function(event) {
 </script>
 
 <?php include '../includes/footer.php'; ?>
-
 </body>
 </html>

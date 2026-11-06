@@ -1,45 +1,61 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Admin authentication check
 if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
-    header('Location: login.php?error=Please login to access admin panel');
+    header('Location: login.php');
     exit();
 }
 
-// Include database connection
-require_once '../includes/db.php';
+$message = '';
+$message_type = '';
 
-// Handle book deletion (updated for new structure)
-if (isset($_POST['delete_book']) && isset($_POST['title_id'])) {
+// All POST actions require CSRF
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verify_csrf_token()) {
+    $message = "Security validation failed. Please refresh and try again.";
+    $message_type = "error";
+}
+
+// Handle book deletion
+elseif (isset($_POST['delete_book']) && isset($_POST['title_id'])) {
     try {
+        $title_id = intval($_POST['title_id']);
+
         // Check if any copies of this book are currently borrowed
         $checkStmt = $conn->prepare("
             SELECT COUNT(*) as count 
             FROM borrowed_books bb 
             WHERE bb.title_id = ? AND bb.status IN ('borrowed', 'overdue', 'renewed')
         ");
-        $checkStmt->execute([$_POST['title_id']]);
+        $checkStmt->execute([$title_id]);
         $borrowed = $checkStmt->fetch()['count'];
         
         if ($borrowed > 0) {
             $message = "Cannot delete book. One or more copies are currently borrowed.";
             $message_type = "error";
         } else {
+            // Get book image for cleanup
+            $imgStmt = $conn->prepare("SELECT book_image FROM book_titles WHERE title_id = ?");
+            $imgStmt->execute([$title_id]);
+            $bookImage = $imgStmt->fetchColumn();
+
             // Start transaction
             $conn->beginTransaction();
             
             // Delete all copies first (due to foreign key constraints)
             $deleteCopiesStmt = $conn->prepare("DELETE FROM book_copies WHERE title_id = ?");
-            $deleteCopiesStmt->execute([$_POST['title_id']]);
+            $deleteCopiesStmt->execute([$title_id]);
             
             // Delete the book title
             $deleteTitleStmt = $conn->prepare("DELETE FROM book_titles WHERE title_id = ?");
-            if ($deleteTitleStmt->execute([$_POST['title_id']])) {
+            if ($deleteTitleStmt->execute([$title_id])) {
                 $conn->commit();
+                if (!empty($bookImage)) {
+                    storage_delete_book_image($bookImage);
+                }
                 $message = "Book and all its copies deleted successfully.";
                 $message_type = "success";
             } else {
@@ -49,8 +65,9 @@ if (isset($_POST['delete_book']) && isset($_POST['title_id'])) {
             }
         }
     } catch (PDOException $e) {
-        $conn->rollBack();
-        $message = "Error: " . $e->getMessage();
+        if ($conn->inTransaction()) $conn->rollBack();
+        error_log("manage_books delete PDOException: " . $e->getMessage());
+        $message = "An error occurred. Please try again.";
         $message_type = "error";
     }
 }
@@ -327,7 +344,7 @@ function buildUrl($newParams = []) {
                             <div class="book-card">
                                 <div class="book-image">
                                     <?php if (!empty($book['book_image'])): ?>
-                                        <img src="../uploads/book-images/<?php echo htmlspecialchars($book['book_image']); ?>" 
+                                        <img src="<?php echo e(storage_get_book_image_url($book['book_image'], '..')); ?>" 
                                              alt="<?php echo htmlspecialchars($book['title']); ?>"
                                              style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
                                     <?php else: ?>
@@ -368,8 +385,9 @@ function buildUrl($newParams = []) {
                                         ✏️ Edit
                                     </a>
                                     
-                                    <form method="POST" style="display: inline;" 
+                                    <form method="POST" style="display: inline;"
                                           onsubmit="return confirm('Are you sure you want to delete this book and all its copies? This action cannot be undone.');">
+                                        <?php echo csrf_field(); ?>
                                         <input type="hidden" name="title_id" value="<?php echo $book['title_id']; ?>">
                                         <button type="submit" name="delete_book" class="btn-delete">
                                             🗑️ Delete

@@ -1,6 +1,7 @@
 <?php 
-require_once '../includes/session.php';
-require_once '../includes/db.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Get user information from session with fallbacks
 $user_id = $_SESSION['user_id'] ?? $_SESSION['student_id'] ?? null;
@@ -205,26 +206,26 @@ try {
         <div class="book-row">
             <?php if (!empty($fiction_books)): ?>
                 <?php foreach ($fiction_books as $image): ?>
-                    <img src="../uploads/book-images/<?php echo htmlspecialchars($image); ?>" alt="Fiction Book">
+                    <img src="<?php echo e(storage_get_book_image_url($image, '..')); ?>" alt="Fiction Book">
                 <?php endforeach; ?>
             <?php else: ?>
                 <!-- Fallback images if no books found -->
-                <img src="../uploads/book-images/fic1.png" alt="Fiction Book">
-                <img src="../uploads/book-images/fic2.png" alt="Fiction Book">
-                <img src="../uploads/book-images/fic3.png" alt="Fiction Book">
+                <img src="<?php echo e(storage_get_book_image_url('fic1.png', '..')); ?>" alt="Fiction Book">
+                <img src="<?php echo e(storage_get_book_image_url('fic2.png', '..')); ?>" alt="Fiction Book">
+                <img src="<?php echo e(storage_get_book_image_url('fic3.png', '..')); ?>" alt="Fiction Book">
             <?php endif; ?>
         </div>
         <h4>Non-Fiction Books</h4>
         <div class="book-row">
             <?php if (!empty($nonfiction_books)): ?>
                 <?php foreach ($nonfiction_books as $image): ?>
-                    <img src="../uploads/book-images/<?php echo htmlspecialchars($image); ?>" alt="Non-Fiction Book">
+                    <img src="<?php echo e(storage_get_book_image_url($image, '..')); ?>" alt="Non-Fiction Book">
                 <?php endforeach; ?>
             <?php else: ?>
                 <!-- Fallback images if no books found -->
-                <img src="../uploads/book-images/nonfic1.png" alt="Non-Fiction Book">
-                <img src="../uploads/book-images/nonfic2.png" alt="Non-Fiction Book">
-                <img src="../uploads/book-images/nonfic3.png" alt="Non-Fiction Book">
+                <img src="<?php echo e(storage_get_book_image_url('nonfic1.png', '..')); ?>" alt="Non-Fiction Book">
+                <img src="<?php echo e(storage_get_book_image_url('nonfic2.png', '..')); ?>" alt="Non-Fiction Book">
+                <img src="<?php echo e(storage_get_book_image_url('nonfic3.png', '..')); ?>" alt="Non-Fiction Book">
             <?php endif; ?>
         </div>
         <div class="more-books-text">

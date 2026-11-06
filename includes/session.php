@@ -1,12 +1,8 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/**
+ * Student Session Guard
+ * The Cat-alog Library
+ */
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
-}
-?>
-
+require_once __DIR__ . '/auth_check.php';
+require_student_auth();

@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.php": {
+      "runtime": "vercel-php@0.8.0"
+    }
+  },
+  "routes": [
+    {
+      "src": "^/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "^/uploads/(.*)",
+      "dest": "/uploads/$1"
+    },
+    {
+      "src": "^/(sql|bin|includes|tests|\\.env|\\.git)(/.*)?$",
+      "status": 403,
+      "dest": "/api/index.php"
+    },
+    {
+      "src": "^/(.*)",
+      "dest": "/api/index.php"
+    }
+  ]
+}

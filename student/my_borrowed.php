@@ -1,6 +1,7 @@
 <?php 
-require_once '../includes/session.php';
-require_once '../includes/db.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Get user information from session
 $user_id = $_SESSION['user_id'] ?? $_SESSION['student_id'] ?? null;
@@ -167,15 +168,8 @@ function formatPublishedDate($month, $year) {
                 $days_remaining = getDaysRemaining($book['due_date']);
                 $published_date = formatPublishedDate($book['published_month'], $book['published_year']);
                 
-                // Handle book image - carefully check if image exists
-                $book_image_src = '';
-                if (!empty($book['book_image'])) {
-                    $book_image_path = '../uploads/book-images/' . $book['book_image'];
-                    if (file_exists($book_image_path)) {
-                        $book_image_src = $book_image_path;
-                    }
-                }
-                // If no valid image, keep it empty to show brown placeholder
+                // Handle book image
+                $book_image_src = !empty($book['book_image']) ? storage_get_book_image_url($book['book_image'], '..') : '';
                 ?>
                 <div class="borrowed-book-card">
                     <div class="book-image-container">

@@ -1,0 +1,30 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.log
+
+# MAMP / Local runtime artifacts
+/Applications/MAMP/tmp/
+/Applications/MAMP/logs/
+
+# Test artifacts and temporary files
+/tmp/
+*.tmp
+tests/tmp/
+
+# Composer dependencies (if any)
+/vendor/
+
+# Node dependencies (if any)
+/node_modules/
+
+# IDE files
+.vscode/
+.idea/
+
+.vercel

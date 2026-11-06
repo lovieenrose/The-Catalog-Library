@@ -1,94 +1,96 @@
 <?php
-// Start session first
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/../includes/config.php';
+setup_secure_session();
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
 // Admin authentication check
 if (!isset($_SESSION['admin_id']) || !isset($_SESSION['username'])) {
-    header('Location: login.php?error=Please login to access admin panel');
+    header('Location: login.php');
     exit();
 }
-
-// Include database connection
-require_once '../includes/db.php';
 
 $message = '';
 $message_type = '';
 $errors = [];
 
-// Handle return book action (updated for new structure)
-if (isset($_POST['return_book']) && isset($_POST['borrow_id'])) {
+// All POST actions require CSRF
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verify_csrf_token()) {
+    $message = "Security validation failed. Please refresh and try again.";
+    $message_type = "error";
+}
+
+// Handle return book action
+elseif (isset($_POST['return_book']) && isset($_POST['borrow_id'])) {
     try {
         $borrow_id = intval($_POST['borrow_id']);
-        
-        // Get borrow details for updating copy status
+
+        $conn->beginTransaction();
+
+        // Lock the borrow record and verify it's still active (idempotent)
         $borrowQuery = $conn->prepare("
             SELECT bb.copy_id, bb.title_id, bt.title, bc.book_id
-            FROM borrowed_books bb 
-            JOIN book_titles bt ON bb.title_id = bt.title_id 
+            FROM borrowed_books bb
+            JOIN book_titles bt ON bb.title_id = bt.title_id
             JOIN book_copies bc ON bb.copy_id = bc.copy_id
             WHERE bb.id = ? AND bb.status IN ('borrowed', 'overdue', 'renewed')
+            FOR UPDATE
         ");
         $borrowQuery->execute([$borrow_id]);
         $borrowData = $borrowQuery->fetch();
-        
+
         if ($borrowData) {
-            $conn->beginTransaction();
-            
-            // Update borrowed_books table
+            // Mark as returned
             $returnStmt = $conn->prepare("
-                UPDATE borrowed_books 
-                SET return_date = CURDATE(), status = 'returned' 
+                UPDATE borrowed_books
+                SET return_date = CURDATE(), status = 'returned'
                 WHERE id = ? AND status IN ('borrowed', 'overdue', 'renewed')
             ");
-            
-            // Update specific copy status
-            $copyStatusStmt = $conn->prepare("
-                UPDATE book_copies 
-                SET status = 'Available' 
-                WHERE copy_id = ?
-            ");
-            
-            // Update book_titles available_copies count
-            $updateAvailableStmt = $conn->prepare("
-                UPDATE book_titles 
-                SET available_copies = available_copies + 1,
-                    status = CASE 
-                        WHEN available_copies + 1 > 0 THEN 'Available' 
-                        ELSE status 
-                    END
-                WHERE title_id = ?
-            ");
-            
-            // Execute all updates
-            $returnResult = $returnStmt->execute([$borrow_id]);
-            $copyResult = $copyStatusStmt->execute([$borrowData['copy_id']]);
-            $titleResult = $updateAvailableStmt->execute([$borrowData['title_id']]);
-            
-            if ($returnResult && $copyResult && $titleResult) {
-                $conn->commit();
-                $message = "Book '{$borrowData['title']}' (Copy: {$borrowData['book_id']}) returned successfully!";
-                $message_type = "success";
-            } else {
-                $conn->rollback();
-                $message = "Failed to process book return.";
+            $returnAffected = $returnStmt->execute([$borrow_id]);
+
+            if ($returnStmt->rowCount() === 0) {
+                // Another concurrent request already returned it
+                $conn->rollBack();
+                $message = "Book has already been returned.";
                 $message_type = "error";
+            } else {
+                // Update copy status back to Available
+                $copyStatusStmt = $conn->prepare("UPDATE book_copies SET status = 'Available' WHERE copy_id = ?");
+                $copyStatusStmt->execute([$borrowData['copy_id']]);
+
+                // Recalculate available_copies from actual copy statuses (safe vs. counter drift)
+                $updateAvailableStmt = $conn->prepare("
+                    UPDATE book_titles
+                    SET available_copies = (
+                        SELECT COUNT(*) FROM book_copies WHERE title_id = ? AND status = 'Available'
+                    ),
+                    status = CASE
+                        WHEN (SELECT COUNT(*) FROM book_copies WHERE title_id = ? AND status = 'Available') > 0
+                        THEN 'Available' ELSE status
+                    END
+                    WHERE title_id = ?
+                ");
+                $updateAvailableStmt->execute([$borrowData['title_id'], $borrowData['title_id'], $borrowData['title_id']]);
+
+                $conn->commit();
+                $message = "Book '" . e($borrowData['title']) . "' (Copy: " . e($borrowData['book_id']) . ") returned successfully!";
+                $message_type = "success";
             }
         } else {
+            $conn->rollBack();
             $message = "Book not found or already returned.";
             $message_type = "error";
         }
-        
     } catch (PDOException $e) {
         $conn->rollback();
-        $message = "Error processing return: " . $e->getMessage();
+        error_log("manage_borrowed return PDOException: " . $e->getMessage());
+        $message = "An error occurred processing the return. Please try again.";
         $message_type = "error";
     }
 }
 
-// Handle new borrowing (updated for new structure)
-if (isset($_POST['borrow_book'])) {
+// Handle new borrowing
+elseif (isset($_POST['borrow_book'])) {
     $user_id = intval($_POST['user_id']);
     $title_id = intval($_POST['title_id']);
     $due_days = 7; // Fixed 7 days borrowing period
@@ -132,58 +134,46 @@ if (isset($_POST['borrow_book'])) {
                     if ($borrowCount >= 2) {
                         $errors[] = "User has reached the maximum borrowing limit of 2 books.";
                     } else {
-                        // Find an available copy to assign
+                        // Find an available copy with FOR UPDATE lock (prevents concurrent double-assignment)
+                        $conn->beginTransaction();
+
                         $copyQuery = $conn->prepare("
-                            SELECT copy_id, book_id, copy_number 
-                            FROM book_copies 
-                            WHERE title_id = ? AND status = 'Available' 
-                            ORDER BY copy_number ASC 
+                            SELECT copy_id, book_id, copy_number
+                            FROM book_copies
+                            WHERE title_id = ? AND status = 'Available'
+                            ORDER BY copy_number ASC
                             LIMIT 1
+                            FOR UPDATE
                         ");
                         $copyQuery->execute([$title_id]);
                         $availableCopy = $copyQuery->fetch();
-                        
+
                         if (!$availableCopy) {
+                            $conn->rollBack();
                             $errors[] = "No available copies found for assignment.";
                         } else {
-                            // Process borrowing
                             $borrow_date = date('Y-m-d');
-                            $due_date = date('Y-m-d', strtotime("+$due_days days"));
-                            
-                            $conn->beginTransaction();
-                            
-                            // Insert borrow record
+                            $due_date    = date('Y-m-d', strtotime("+$due_days days"));
+
                             $borrowStmt = $conn->prepare("
-                                INSERT INTO borrowed_books (user_id, copy_id, title_id, book_id, borrow_date, due_date, status) 
+                                INSERT INTO borrowed_books (user_id, copy_id, title_id, book_id, borrow_date, due_date, status)
                                 VALUES (?, ?, ?, ?, ?, ?, 'borrowed')
                             ");
-                            
-                            // Update copy status
                             $updateCopyStmt = $conn->prepare("UPDATE book_copies SET status = 'Borrowed' WHERE copy_id = ?");
-                            
-                            // Update title available_copies count
                             $updateTitleStmt = $conn->prepare("
-                                UPDATE book_titles 
+                                UPDATE book_titles
                                 SET available_copies = available_copies - 1,
-                                    status = CASE 
-                                        WHEN available_copies - 1 <= 0 THEN 'Borrowed' 
-                                        ELSE 'Available' 
-                                    END
+                                    status = CASE WHEN available_copies - 1 <= 0 THEN 'Borrowed' ELSE 'Available' END
                                 WHERE title_id = ?
                             ");
-                            
-                            $borrowResult = $borrowStmt->execute([$user_id, $availableCopy['copy_id'], $title_id, $availableCopy['book_id'], $borrow_date, $due_date]);
-                            $copyUpdateResult = $updateCopyStmt->execute([$availableCopy['copy_id']]);
-                            $titleUpdateResult = $updateTitleStmt->execute([$title_id]);
-                            
-                            if ($borrowResult && $copyUpdateResult && $titleUpdateResult) {
-                                $conn->commit();
-                                $message = "Book '{$title['title']}' (Copy #{$availableCopy['copy_number']}: {$availableCopy['book_id']}) borrowed by {$user['first_name']} {$user['last_name']} successfully! Due date: " . date('M j, Y', strtotime($due_date));
-                                $message_type = "success";
-                            } else {
-                                $conn->rollback();
-                                $errors[] = "Failed to process borrowing.";
-                            }
+
+                            $borrowStmt->execute([$user_id, $availableCopy['copy_id'], $title_id, $availableCopy['book_id'], $borrow_date, $due_date]);
+                            $updateCopyStmt->execute([$availableCopy['copy_id']]);
+                            $updateTitleStmt->execute([$title_id]);
+
+                            $conn->commit();
+                            $message = "Book '" . e($title['title']) . "' (Copy #" . e($availableCopy['copy_number']) . ": " . e($availableCopy['book_id']) . ") borrowed by " . e($user['first_name']) . " " . e($user['last_name']) . " successfully! Due date: " . date('M j, Y', strtotime($due_date));
+                            $message_type = "success";
                         }
                     }
                 }
@@ -191,8 +181,9 @@ if (isset($_POST['borrow_book'])) {
         }
         
     } catch (PDOException $e) {
-        $conn->rollback();
-        $errors[] = "Database error: " . $e->getMessage();
+        if ($conn->inTransaction()) $conn->rollback();
+        error_log("manage_borrowed borrow PDOException: " . $e->getMessage());
+        $errors[] = "A database error occurred. Please try again.";
     }
     
     if (!empty($errors)) {
@@ -441,6 +432,7 @@ function daysDifference($date1, $date2 = null) {
             <div class="new-borrow-section">
                 <h3>📖 Process New Borrowing</h3>
                 <form method="POST" class="borrow-form">
+                    <?php echo csrf_field(); ?>
                     <div class="form-group">
                         <label for="user_id">Select Student</label>
                         <select id="user_id" name="user_id" required>
@@ -610,8 +602,9 @@ function daysDifference($date1, $date2 = null) {
                                     </td>
                                     <td>
                                         <?php if ($borrow['status'] === 'borrowed' || $borrow['status'] === 'overdue' || $borrow['status'] === 'renewed'): ?>
-                                            <form method="POST" style="display: inline;" 
+                                            <form method="POST" style="display: inline;"
                                                   onsubmit="return confirm('Mark this book copy as returned?');">
+                                                <?php echo csrf_field(); ?>
                                                 <input type="hidden" name="borrow_id" value="<?php echo $borrow['id']; ?>">
                                                 <button type="submit" name="return_book" class="btn-return">
                                                     ↩️ Return

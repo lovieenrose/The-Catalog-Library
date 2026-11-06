@@ -1,19 +1,23 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/config.php';
+setup_secure_session();
 
-// Include database connection - just to verify it works
-try {
-    require_once 'includes/db.php';
-    // Simple test to ensure database is connected
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM book_titles");
-    $stmt->execute();
-    $db_connected = true;
-} catch (Exception $e) {
-    $db_connected = false;
-    error_log("Database connection issue: " . $e->getMessage());
+// Signal that index.php handles DB connection failure gracefully
+$allow_db_failure = true;
+require_once __DIR__ . '/includes/db.php';
+
+$db_connected = false;
+if (isset($conn) && $conn instanceof PDO) {
+    try {
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM book_titles");
+        $stmt->execute();
+        $db_connected = true;
+    } catch (Exception $e) {
+        $db_connected = false;
+        error_log("Database connection issue on homepage: " . $e->getMessage());
+    }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,13 +47,11 @@ try {
 
     <?php if (!$db_connected): ?>
         <div style="background: #ffebee; border: 1px solid #f44336; padding: 10px; margin: 20px; border-radius: 5px; color: #c62828; text-align: center;">
-            <strong>Note:</strong> Database connection issue detected. Please check your database configuration.
+            <strong>Note:</strong> Database connection issue detected. Please check your database configuration in <code>.env</code>.
         </div>
     <?php endif; ?>
 </div>
 
 <?php include 'includes/footer.php'; ?>
-
-<script src="assets/js/script.js"></script>
 </body>
 </html>
