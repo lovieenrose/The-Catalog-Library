@@ -72,14 +72,15 @@ class DatabaseSessionHandler implements SessionHandlerInterface {
     }
 }
 
-function register_database_session_handler() {
-    global $conn;
+function register_database_session_handler(): bool {
+    global $conn, $db_connected, $allow_db_failure;
     if (!isset($conn)) {
         require_once __DIR__ . '/db.php';
     }
     if (isset($conn) && $conn instanceof PDO) {
         $handler = new DatabaseSessionHandler($conn);
-        session_set_save_handler($handler, true);
+        return session_set_save_handler($handler, true);
     }
+    return false;
 }
 

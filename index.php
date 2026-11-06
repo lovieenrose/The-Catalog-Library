@@ -1,9 +1,8 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
-setup_secure_session();
-
 // Signal that index.php handles DB connection failure gracefully
 $allow_db_failure = true;
+require_once __DIR__ . '/includes/config.php';
+setup_secure_session();
 require_once __DIR__ . '/includes/db.php';
 
 $db_connected = false;

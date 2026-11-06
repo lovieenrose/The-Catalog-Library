@@ -130,9 +130,17 @@ if (!function_exists('setup_secure_session')) {
         ]);
 
         // If database session driver is requested, register custom session handler
+        $dbHandlerRegistered = false;
         if (env('SESSION_DRIVER') === 'database' || env('VERCEL')) {
             require_once __DIR__ . '/session_handler.php';
-            register_database_session_handler();
+            $dbHandlerRegistered = register_database_session_handler();
+        }
+
+        if (!$dbHandlerRegistered) {
+            $savePath = session_save_path();
+            if (empty($savePath) || !is_dir($savePath) || !is_writable($savePath)) {
+                session_save_path(sys_get_temp_dir());
+            }
         }
 
         session_start();

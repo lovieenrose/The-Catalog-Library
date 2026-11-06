@@ -48,12 +48,16 @@ $db_connected = false;
 try {
     $conn = new PDO($dsn, $user, $pass, $pdoOptions);
     $db_connected = true;
+    $GLOBALS['conn'] = $conn;
+    $GLOBALS['db_connected'] = true;
 } catch (PDOException $e) {
     error_log("Database connection failed: " . $e->getMessage());
     $db_connected = false;
+    $GLOBALS['conn'] = null;
+    $GLOBALS['db_connected'] = false;
 
     // If script explicitly allows failure (e.g. index.php homepage check), do not terminate
-    if (isset($allow_db_failure) && $allow_db_failure === true) {
+    if ((isset($allow_db_failure) && $allow_db_failure === true) || (!empty($GLOBALS['allow_db_failure']))) {
         $conn = null;
     } else {
         // Return a clean, generic response without leaking credentials or paths
